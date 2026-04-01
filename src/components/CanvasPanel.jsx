@@ -6,7 +6,7 @@ import AutomatonSVG from './AutomatonSVG'
  */
 export default function CanvasPanel({ svgData, isDFA, highlightPath, tableData, alphabet, isAnimating, darkMode }) {
   return (
-    <div className="absolute inset-0 overflow-hidden canvas-bg">
+    <div className="absolute inset-0 overflow-auto md:overflow-hidden canvas-bg">
       {!svgData ? (
         /* ── Empty state ── */
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted">

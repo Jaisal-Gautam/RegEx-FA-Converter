@@ -58,7 +58,7 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
       ref={svgRef}
       viewBox={viewBox}
       xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-full cursor-grab active:cursor-grabbing"
+      className="w-full h-full min-w-[480px] md:min-w-0 cursor-default"
       onMouseLeave={() => setTooltip(null)}
     >
       <defs>

@@ -1,7 +1,7 @@
-import RegexInput     from './RegexInput'
-import BuildControls  from './BuildControls'
+import RegexInput from './RegexInput'
+import BuildControls from './BuildControls'
 import AutomatonStats from './AutomatonStats'
-import SimulatePanel  from './SimulatePanel'
+import SimulatePanel from './SimulatePanel'
 
 export default function LeftPanel({
   regexVal, onRegexChange, error,
@@ -13,7 +13,7 @@ export default function LeftPanel({
 }) {
   return (
     <aside className="bg-surface dark:bg-[#16140f] overflow-hidden border-b md:border-b-0 md:border-r border-border dark:border-[#2a2824] md:h-full">
-      <div className="grid grid-cols-2 md:flex md:flex-col md:h-full overflow-hidden">
+      <div className="grid grid-cols-2 md:flex md:flex-col md:h-full overflow-hidden space-y-4">
 
         {/* Row 1 – Regex input (full width) */}
         <div className="col-span-2 md:col-auto">
@@ -26,7 +26,7 @@ export default function LeftPanel({
         </div>
 
         {/* Row 2 col 1 – Build buttons (border-r only; bottom border handled by separator) */}
-        <div className="border-r md:border-r-0 border-border dark:border-[#2a2824] flex flex-col justify-center">
+        <div className="border-r md:border-r-0 border-border dark:border-[#2a2824] flex flex-col justify-center ">
           <BuildControls
             onBuildNFA={onBuildNFA}
             onBuildDFA={onBuildDFA}

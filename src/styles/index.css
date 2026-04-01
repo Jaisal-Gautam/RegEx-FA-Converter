@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base resets ── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply font-sans bg-bg text-ink antialiased;
+  }
+
+  /* Dark mode body overrides */
+  .dark body {
+    background-color: #0f0e0c;
+    color: #e8e4dc;
+  }
+}
+
+/* ── Custom component classes ── */
+@layer components {
+
+  /* Section title diamond bullet */
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: theme('colors.accent');
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  }
+
+  /* Regex input focus/error states */
+  .regex-input:focus {
+    border-color: theme('colors.accent');
+    box-shadow: 0 0 0 2px rgba(45, 106, 79, 0.12);
+    background: #fff;
+    outline: none;
+  }
+  .dark .regex-input:focus {
+    background: #1e1c18;
+    box-shadow: 0 0 0 2px rgba(45, 106, 79, 0.25);
+  }
+  .regex-input.has-error {
+    border-color: theme('colors.danger');
+    box-shadow: 0 0 0 2px rgba(181, 58, 46, 0.10);
+  }
+
+  /* Sim input focus */
+  .sim-input:focus {
+    border-color: theme('colors.accent3');
+    background: #fff;
+    outline: none;
+  }
+  .dark .sim-input:focus {
+    background: #1e1c18;
+  }
+
+  /* Tab active states */
+  .tab-nfa-active {
+    color: theme('colors.accent') !important;
+    border-bottom-color: theme('colors.accent') !important;
+  }
+  .tab-dfa-active {
+    color: theme('colors.accent2') !important;
+    border-bottom-color: theme('colors.accent2') !important;
+  }
+  .tab-table-active {
+    color: theme('colors.accent3') !important;
+    border-bottom-color: theme('colors.accent3') !important;
+  }
+
+  /* Dot-grid canvas background */
+  .canvas-bg {
+    background-color: #f9f8f5;
+    background-image: radial-gradient(circle, #d0ccc4 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .dark .canvas-bg {
+    background-color: #121110;
+    background-image: radial-gradient(circle, #2a2824 1px, transparent 1px);
+  }
+
+  /* Postfix token variants */
+  .token-char   { border-color: #a8c5b5; color: #2d6a4f; background: rgba(45,106,79,.07); }
+  .token-concat { border-color: #c5b88a; color: #7a5a10; background: rgba(122,90,16,.07); }
+  .token-union  { border-color: #c5968a; color: #8c3a2e; background: rgba(140,58,46,.07); }
+  .token-star   { border-color: #8aaec5; color: #1e4f8c; background: rgba(30,79,140,.07); }
+  .token-plus   { border-color: #a88ac5; color: #5a1e8c; background: rgba(90,30,140,.07); }
+  .token-ques   { border-color: #c5a88a; color: #8c5a1e; background: rgba(140,90,30,.07); }
+
+  .dark .token-char   { border-color: #2d6a4f; color: #6fba90; background: rgba(45,106,79,.15); }
+  .dark .token-concat { border-color: #7a5a10; color: #c8a34f; background: rgba(122,90,16,.15); }
+  .dark .token-union  { border-color: #8c3a2e; color: #d97868; background: rgba(140,58,46,.15); }
+  .dark .token-star   { border-color: #1e4f8c; color: #6a9ed8; background: rgba(30,79,140,.15); }
+  .dark .token-plus   { border-color: #5a1e8c; color: #a878d8; background: rgba(90,30,140,.15); }
+  .dark .token-ques   { border-color: #8c5a1e; color: #d8a056; background: rgba(140,90,30,.15); }
+
+  /* SVG state animation */
+  .state-enter {
+    animation: stateEnter 0.25s ease-out forwards;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.border') transparent;
+  }
+  .dark .scrollbar-thin {
+    scrollbar-color: #2a2824 transparent;
+  }
+}
+
+/* ── Keyframes ── */
+@keyframes stateEnter {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}

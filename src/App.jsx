@@ -47,6 +47,8 @@ export default function App() {
           animStep={automaton.animStep}
           totalAnimSteps={automaton.totalAnimSteps}
           darkMode={darkMode}
+          postfix={automaton.postfix}
+          nfaLabelMap={automaton.nfaLabelMap}
         />
       </main>
     </div>

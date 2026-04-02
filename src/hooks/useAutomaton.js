@@ -329,5 +329,6 @@ export function useAutomaton(initialRegex = "(a|b)*abb") {
     totalAnimSteps: animFrames.length,
     hasNFA: !!rawNFA,
     hasDFA: !!dfaRaw,
+    nfaLabelMap: rawNFA?.labelMap ?? null,
   };
 }

@@ -10,11 +10,6 @@ const TABS = [
 /**
  * RightPanel.jsx
  * Tab bar + three panels: NFA canvas, DFA canvas, Transition Table.
- *
- * During animation the canvas receives the current partial frame (liveNfaSvgData /
- * liveDfaSvgData) so states appear one by one in the main diagram.
- * A live table overlay is shown in the top-right corner of the canvas.
- * When animation finishes the hook auto-switches activeTab to 'table'.
  */
 export default function RightPanel({
   activeTab, onTabChange,
@@ -31,6 +26,8 @@ export default function RightPanel({
   animStep,
   totalAnimSteps,
   darkMode,
+  postfix,
+  nfaLabelMap,
 }) {
   return (
     <div className="flex flex-col overflow-hidden flex-1 md:h-full md:flex-none">
@@ -58,7 +55,7 @@ export default function RightPanel({
         )}
       </div>
 
-      {/* ── Panels (fill remaining height, no scroll on the container) ── */}
+      {/* ── Panels ── */}
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'nfa' && (
           <CanvasPanel
@@ -69,6 +66,10 @@ export default function RightPanel({
             alphabet={alphabet}
             isAnimating={isAnimating && !animIsDFA}
             darkMode={darkMode}
+            postfix={postfix}
+            animStep={animStep}
+            totalAnimSteps={totalAnimSteps}
+            nfaLabelMap={nfaLabelMap}
           />
         )}
 
@@ -81,6 +82,10 @@ export default function RightPanel({
             alphabet={alphabet}
             isAnimating={isAnimating && animIsDFA}
             darkMode={darkMode}
+            dfaRaw={dfaRaw}
+            animStep={animStep}
+            totalAnimSteps={totalAnimSteps}
+            nfaLabelMap={nfaLabelMap}
           />
         )}
 

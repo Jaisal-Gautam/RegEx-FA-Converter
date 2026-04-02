@@ -1,10 +1,11 @@
 import AutomatonSVG from './AutomatonSVG'
+import ConstructionSteps from './ConstructionSteps'
 
 /**
  * CanvasPanel.jsx
- * Renders the automaton on a dot-grid canvas. Static (no pan/zoom or legend).
+ * Renders the automaton on a dot-grid canvas with a construction steps overlay.
  */
-export default function CanvasPanel({ svgData, isDFA, highlightPath, tableData, alphabet, isAnimating, darkMode }) {
+export default function CanvasPanel({ svgData, isDFA, highlightPath, tableData, alphabet, isAnimating, darkMode, postfix, animStep, totalAnimSteps, dfaRaw, nfaLabelMap }) {
   return (
     <div className="absolute inset-0 overflow-auto md:overflow-hidden canvas-bg">
       {!svgData ? (
@@ -26,6 +27,24 @@ export default function CanvasPanel({ svgData, isDFA, highlightPath, tableData, 
           newestStateId={isAnimating && svgData?.states?.length > 0
             ? svgData.states[svgData.states.length - 1]?.id
             : null}
+        />
+      )}
+
+      {/* ── Construction steps overlay (draggable, NFA + DFA) ── */}
+      {svgData && (
+        (!isDFA && postfix && postfix.length > 0) ||
+        (isDFA && dfaRaw && dfaRaw.dfaStates && dfaRaw.dfaStates.length > 0)
+      ) && (
+        <ConstructionSteps
+          postfix={postfix}
+          dfaRaw={dfaRaw}
+          alphabet={alphabet}
+          isAnimating={isAnimating}
+          animStep={animStep ?? 0}
+          totalAnimSteps={totalAnimSteps ?? 0}
+          isDFA={isDFA}
+          darkMode={darkMode}
+          nfaLabelMap={nfaLabelMap}
         />
       )}
     </div>

@@ -112,6 +112,7 @@ export default function RightPanel({
 
         {activeTab === 'table' && (
           <TransitionTable
+            regexVal={regexVal}
             nfaData={nfaTableData}
             dfaData={dfaRaw}
             alphabet={alphabet}

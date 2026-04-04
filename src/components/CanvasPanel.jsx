@@ -210,7 +210,7 @@ function LegendDot({ color, label }) {
   )
 }
 
-function LegendLine({ stroke, dash, label }) {
+ function LegendLine({ stroke, dash, label }) {
   return (
     <div className="flex items-center gap-2 font-mono text-[0.7rem] text-muted">
       <svg width="22" height="8" className="flex-shrink-0">

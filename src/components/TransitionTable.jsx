@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import AutomatonSVG from './AutomatonSVG'
 import { toPng } from 'html-to-image'
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 
 /**
  * TransitionTable.jsx
@@ -107,17 +108,42 @@ export default function TransitionTable({ regexVal, nfaData, dfaData, alphabet, 
             {showDFA ? 'DFA' : 'ε-NFA'} Diagram
           </p>
           <div
-            className="border border-border dark:border-[#2a2824] rounded overflow-hidden flex justify-center"
+            className="border border-border dark:border-[#2a2824] rounded overflow-hidden relative"
             style={{ height: '420px', background: darkMode ? '#121110' : '#f9f8f5' }}
           >
-            <AutomatonSVG
-              {...svgData}
-              isDFA={showDFA}
-              highlightPath={null}
-              svgRef={null}
-              newestStateId={null}
-              darkMode={darkMode}
-            />
+            <TransformWrapper
+              initialScale={1}
+              minScale={0.1}
+              maxScale={4}
+              centerOnInit
+              wheel={{ step: 0.1 }}
+              panning={{ velocityMultiplier: 0.4 }}
+            >
+              {({ zoomIn, zoomOut, resetTransform }) => (
+                <>
+                  {/* Floating Toolbar within the diagram */}
+                  <div className="absolute bottom-4 right-4 z-10 flex items-center gap-2">
+                    <div className="flex bg-surface dark:bg-[#16140f] border border-border/50 dark:border-[#2a2824] rounded-md overflow-hidden backdrop-blur-sm shadow-md">
+                      <button onClick={() => zoomIn()} title="Zoom In" className="px-3 py-1.5 text-ink/70 dark:text-[#e8e4dc]/70 hover:text-ink dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 font-mono text-lg transition-colors border-r border-border/50 dark:border-[#2a2824]">+</button>
+                      <button onClick={() => zoomOut()} title="Zoom Out" className="px-3 py-1.5 text-ink/70 dark:text-[#e8e4dc]/70 hover:text-ink dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 font-mono text-lg transition-colors border-r border-border/50 dark:border-[#2a2824]">−</button>
+                      <button onClick={() => resetTransform()} title="Reset Zoom" className="px-3 py-2 text-ink/70 dark:text-[#e8e4dc]/70 hover:text-ink dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                    <AutomatonSVG
+                      {...svgData}
+                      isDFA={showDFA}
+                      highlightPath={null}
+                      svgRef={null}
+                      newestStateId={null}
+                      darkMode={darkMode}
+                    />
+                  </TransformComponent>
+                </>
+              )}
+            </TransformWrapper>
           </div>
         </div>
       )}

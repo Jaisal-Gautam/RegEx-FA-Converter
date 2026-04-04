@@ -18,10 +18,10 @@ export default function App() {
   const showSteps = hasSteps && !stepsHidden
 
   return (
-    <div className={`flex flex-col h-screen overflow-hidden w-full font-sans bg-bg text-ink transition-colors duration-300 ${darkMode ? 'dark bg-[#0f0e0c] text-[#e8e4dc]' : ''}`}>
+    <div className={`flex flex-col min-h-screen md:h-screen md:overflow-hidden w-full font-sans bg-bg text-ink transition-colors duration-300 ${darkMode ? 'dark bg-[#0f0e0c] text-[#e8e4dc]' : ''}`}>
       <Header darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />
 
-      <main className={`flex-1 overflow-hidden min-h-0 flex flex-col md:grid ${showSteps ? 'md:grid-cols-[25%_1fr_280px]' : 'md:grid-cols-[28%_1fr]'}`}>
+      <main className={`flex-1 overflow-y-auto md:overflow-hidden min-h-0 flex flex-col md:grid ${showSteps ? 'md:grid-cols-[25%_1fr_230px] lg:grid-cols-[25%_1fr_280px]' : 'md:grid-cols-[28%_1fr]'}`}>
         <LeftPanel
           regexVal={automaton.regexVal}
           onRegexChange={automaton.setRegexVal}

@@ -9,9 +9,9 @@ export default function SimulatePanel({ value, onChange, onRun, result, disabled
     <div className="px-5 py-3 md:px-6 md:py-4 border-b border-border dark:border-[#2a2824]">
       <SectionTitle>Simulate Input</SectionTitle>
 
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2">
         <input
-          className="sim-input flex-1 bg-surface2 dark:bg-[#1a1916] border border-border dark:border-[#2a2824] text-ink dark:text-[#e8e4dc] placeholder:text-muted dark:placeholder:text-[#3a3830] font-mono text-sm px-3 py-2 rounded transition-colors"
+          className="sim-input w-full bg-surface2 dark:bg-[#1a1916] border border-border dark:border-[#2a2824] text-ink dark:text-[#e8e4dc] placeholder:text-muted dark:placeholder:text-[#3a3830] font-mono text-sm px-3 py-2 rounded transition-colors"
           value={value}
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !disabled && onRun()}
@@ -22,7 +22,7 @@ export default function SimulatePanel({ value, onChange, onRun, result, disabled
         <button
           onClick={onRun}
           disabled={disabled}
-          className="px-4 py-2 bg-accent3 text-white font-sans text-xs font-bold rounded whitespace-nowrap transition-all hover:bg-[#744d18] disabled:bg-border disabled:text-muted disabled:cursor-not-allowed"
+          className="w-full px-4 py-2 bg-accent3 text-white font-sans text-xs font-bold rounded transition-all hover:bg-[#744d18] disabled:bg-border disabled:text-muted disabled:cursor-not-allowed"
         >
           Run
         </button>

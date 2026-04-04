@@ -24,8 +24,8 @@ export default function AutomatonStats({ nfaStats, dfaStats }) {
         <tbody>
           {rows.map(([label, val]) => (
             <tr key={label}>
-              <td className="font-mono text-xs text-muted py-0.5 w-[55%]">{label}</td>
-              <td className="font-mono text-xs text-accent font-semibold py-0.5">{val}</td>
+              <td className="font-mono text-xs text-muted py-0.5 pr-3 align-top">{label}</td>
+              <td className="font-mono text-xs text-accent font-semibold py-0.5 text-right md:text-left align-top">{val}</td>
             </tr>
           ))}
         </tbody>

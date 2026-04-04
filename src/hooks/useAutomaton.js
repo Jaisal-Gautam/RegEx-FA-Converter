@@ -80,7 +80,7 @@ function buildDFAFrames(dfaStates, dfaTrans, pos, acceptIds) {
 
 const ANIM_INTERVAL_MS = 600; // ms per step — slow enough to follow
 
-export function useAutomaton(initialRegex = "(a|b)*abb") {
+export function useAutomaton(initialRegex = "") {
   const [regexVal, setRegexVal] = useState(initialRegex);
   const [error, setError] = useState("");
 
@@ -145,6 +145,24 @@ export function useAutomaton(initialRegex = "(a|b)*abb") {
     [],
   );
 
+  /** Pause animation & jump to a specific frame */
+  const goToStep = useCallback((stepIdx, isDfaStep = false) => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    
+    // If jumping to the final state, end the animation phase naturally
+    if (animFrames.length > 0 && stepIdx >= animFrames.length - 1) {
+      setIsAnimating(false);
+      setAnimStep(animFrames.length - 1);
+    } else {
+      setIsAnimating(true);
+      setAnimStep(stepIdx);
+    }
+    setAnimIsDFA(isDfaStep);
+  }, [animFrames]);
+
   // ── Build NFA ────────────────────────────────────────────────────────────
   const buildNFA = useCallback(() => {
     setError("");
@@ -155,6 +173,12 @@ export function useAutomaton(initialRegex = "(a|b)*abb") {
     setSimResult(null);
     setAnimFrames([]);
     setIsAnimating(false);
+
+    if (!regexVal.trim()) {
+      setNfaSvgData(null);
+      setRawNFA(null);
+      return;
+    }
 
     try {
       const { nfa, postfix: pf } = compileRegex(regexVal);
@@ -297,9 +321,24 @@ export function useAutomaton(initialRegex = "(a|b)*abb") {
         }
       : dfaRaw;
 
+  // Clear previously generated FAs whenever the user edits the regex string
+  const handleRegexChange = useCallback((newRegex) => {
+    setRegexVal(newRegex);
+    setError("");
+    setNfaSvgData(null);
+    setRawNFA(null);
+    setDfaSvgData(null);
+    setDfaRaw(null);
+    setDfaStats(null);
+    setNfaStats(null);
+    setPostfix([]);
+    setAnimFrames([]);
+    setIsAnimating(false);
+  }, []);
+
   return {
     regexVal,
-    setRegexVal,
+    setRegexVal: handleRegexChange,
     error,
     buildNFA,
     buildDFA,
@@ -330,5 +369,6 @@ export function useAutomaton(initialRegex = "(a|b)*abb") {
     hasNFA: !!rawNFA,
     hasDFA: !!dfaRaw,
     nfaLabelMap: rawNFA?.labelMap ?? null,
+    goToStep,
   };
 }

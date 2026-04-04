@@ -22,7 +22,7 @@ const ROLE_DESC = {
  * ε-transitions are coloured and styled by their semantic role.
  * Hovering an ε edge shows a tooltip with its role description.
  */
-export default function AutomatonSVG({ states, transitions, pos, startId, acceptIds, isDFA, highlightPath, svgRef, newestStateId }) {
+export default function AutomatonSVG({ states, transitions, pos, startId, acceptIds, isDFA, highlightPath, svgRef, newestStateId, darkMode }) {
   const [tooltip, setTooltip] = useState(null) // { x, y, text }
 
   const accentColor = isDFA ? '#3a5a8c' : '#2d6a4f'
@@ -141,11 +141,15 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
             <text
               x={lp.x} y={lp.y}
               textAnchor="middle"
-              fill={stroke}
+              fill={darkMode ? '#e8e4dc' : '#1e1c18'}
               fontFamily="'JetBrains Mono', monospace"
-              fontSize="11"
+              fontSize="12"
               fontWeight="600"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
+              paintOrder="stroke fill"
+              stroke={darkMode ? '#16140f' : '#ffffff'}
+              strokeWidth="5"
+              strokeLinejoin="round"
             >
               {t.symbol}
             </text>

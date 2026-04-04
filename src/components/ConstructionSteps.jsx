@@ -167,63 +167,6 @@ function deriveDFASteps(dfaRaw, alphabet, nfaLabelMap) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Drag hook — makes the panel repositionable
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function useDrag() {
-  const [pos, setPos] = useState({ x: null, y: null })
-  const dragging = useRef(false)
-  const offset = useRef({ x: 0, y: 0 })
-  const panelRef = useRef(null)
-
-  const onPointerDown = useCallback((e) => {
-    if (e.button !== 0) return
-    dragging.current = true
-    const rect = panelRef.current?.getBoundingClientRect()
-    if (!rect) return
-    offset.current = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    }
-    e.preventDefault()
-    e.stopPropagation()
-  }, [])
-
-  useEffect(() => {
-    const onPointerMove = (e) => {
-      if (!dragging.current || !panelRef.current) return
-      const parent = panelRef.current.parentElement
-      if (!parent) return
-      const parentRect = parent.getBoundingClientRect()
-      const panelRect = panelRef.current.getBoundingClientRect()
-
-      let newX = e.clientX - parentRect.left - offset.current.x
-      let newY = e.clientY - parentRect.top - offset.current.y
-
-      // Clamp to parent bounds
-      newX = Math.max(0, Math.min(newX, parentRect.width - panelRect.width))
-      newY = Math.max(0, Math.min(newY, parentRect.height - panelRect.height))
-
-      setPos({ x: newX, y: newY })
-    }
-
-    const onPointerUp = () => {
-      dragging.current = false
-    }
-
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-    }
-  }, [])
-
-  return { pos, panelRef, onPointerDown }
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
    Main component — renders NFA or DFA steps with timeline design
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -237,6 +180,8 @@ export default function ConstructionSteps({
   isDFA,
   darkMode,
   nfaLabelMap,
+  goToStep,
+  onClose,
 }) {
   const nfaSteps = useMemo(() => deriveNFASteps(postfix, nfaLabelMap), [postfix, nfaLabelMap])
   const dfaSteps = useMemo(() => deriveDFASteps(dfaRaw, alphabet, nfaLabelMap), [dfaRaw, alphabet, nfaLabelMap])
@@ -244,7 +189,6 @@ export default function ConstructionSteps({
   const steps = isDFA ? dfaSteps : nfaSteps
   const headerLabel = isDFA ? 'Subset Construction' : 'Construction Steps'
 
-  const { pos, panelRef, onPointerDown } = useDrag()
   const [collapsed, setCollapsed] = useState(false)
 
   if (!steps.length) return null
@@ -268,74 +212,46 @@ export default function ConstructionSteps({
 
   const accentColor = isDFA ? '#3a5a8c' : '#2d6a4f'
 
-  const positionStyle = pos.x !== null
-    ? { left: pos.x, top: pos.y, right: 'auto' }
-    : { top: 12, right: 12 }
+  const onStepClick = useCallback((stepIdx) => {
+    if (!goToStep) return;
+    if (isDFA) {
+      goToStep(Math.min(stepIdx, totalAnimSteps - 1), true);
+    } else {
+      let cumulative = 0;
+      for (let j = 0; j <= stepIdx; j++) {
+        cumulative += steps[j].newStates || 1;
+      }
+      goToStep(Math.min(cumulative - 1, totalAnimSteps - 1), false);
+    }
+  }, [isDFA, steps, goToStep, totalAnimSteps]);
 
   return (
     <div
-      ref={panelRef}
-      className={`construction-steps-panel ${darkMode ? 'dark-steps' : ''}`}
+      className={`construction-steps-panel bg-surface dark:bg-[#16140f] border-l border-border dark:border-[#2a2824] flex flex-col h-full min-h-0 overflow-hidden ${darkMode ? 'dark-steps' : ''}`}
       style={{
-        position: 'absolute',
-        ...positionStyle,
         zIndex: 40,
-        width: 280,
-        maxHeight: collapsed ? 'auto' : 'calc(100% - 24px)',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: 12,
-        overflow: 'hidden',
-        boxShadow: darkMode
-          ? '0 4px 24px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3)'
-          : '0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)',
-        border: darkMode ? '1px solid #2a2824' : '1px solid #e0ddd6',
-        background: darkMode
-          ? 'rgba(22, 20, 15, 0.95)'
-          : 'rgba(255, 255, 253, 0.97)',
-        backdropFilter: 'blur(12px)',
         fontFamily: "'JetBrains Mono', monospace",
         transition: 'box-shadow 0.3s ease',
         animation: 'steps-slide-in 0.3s ease-out',
         userSelect: 'none',
-        touchAction: 'none',
       }}
     >
-      {/* ── Draggable Header ── */}
+      {/* ── Header ── */}
       <div
-        onPointerDown={onPointerDown}
         style={{
-          padding: '10px 14px',
-          borderBottom: collapsed
-            ? 'none'
-            : darkMode ? '1px solid #2a2824' : '1px solid #e8e5de',
+          padding: '16px 14px',
+          borderBottom: darkMode ? '1px solid #2a2824' : '1px solid #e8e5de',
           display: 'flex',
           alignItems: 'center',
           gap: 8,
           background: darkMode
             ? 'rgba(30, 28, 24, 0.8)'
             : 'rgba(249, 248, 245, 0.9)',
-          cursor: 'grab',
         }}
       >
-        {/* Drag grip icon */}
-        <span
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            marginRight: 2,
-            opacity: 0.35,
-          }}
-        >
-          {[0,1,2].map(r => (
-            <span key={r} style={{ display: 'flex', gap: 2 }}>
-              <span style={{ width: 3, height: 3, borderRadius: '50%', background: darkMode ? '#aaa' : '#888' }} />
-              <span style={{ width: 3, height: 3, borderRadius: '50%', background: darkMode ? '#aaa' : '#888' }} />
-            </span>
-          ))}
-        </span>
-
         <span
           style={{
             width: 6,
@@ -366,22 +282,27 @@ export default function ConstructionSteps({
         >
           {steps.length} {isDFA ? 'steps' : 'ops'}
         </span>
+        
+        {/* Hide Button */}
         <button
-          onClick={(e) => { e.stopPropagation(); setCollapsed(c => !c) }}
+          onClick={(e) => { e.stopPropagation(); onClose?.() }}
           style={{
             background: 'none',
             border: 'none',
             cursor: 'pointer',
             fontSize: 12,
             color: darkMode ? '#5a5650' : '#aaa59c',
-            padding: '0 2px',
-            lineHeight: 1,
+            padding: '4px 6px',
+            marginLeft: 4,
+            borderRadius: 4,
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'center',
           }}
-          title={collapsed ? 'Expand' : 'Collapse'}
+          className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          title="Hide Construction Steps"
         >
-          {collapsed ? '▼' : '▲'}
+          ✕
         </button>
       </div>
 
@@ -392,6 +313,7 @@ export default function ConstructionSteps({
             overflowY: 'auto',
             padding: '12px 12px',
             flex: 1,
+            minHeight: 0,
             scrollbarWidth: 'thin',
             scrollbarColor: darkMode ? '#2a2824 transparent' : '#d0ccc4 transparent',
           }}
@@ -404,6 +326,7 @@ export default function ConstructionSteps({
             return (
               <div
                 key={i}
+                onClick={() => onStepClick(i)}
                 style={{
                   display: 'flex',
                   gap: 12,
@@ -412,7 +335,9 @@ export default function ConstructionSteps({
                   paddingBottom: isLast ? 0 : 16,
                   transition: 'opacity 0.2s ease',
                   opacity: isAnimating && !isPast && !isActive ? 0.35 : 1,
+                  cursor: 'pointer',
                 }}
+                className="hover:opacity-80 transition-opacity"
               >
                 {/* Timeline column — circle + connecting line */}
                 <div

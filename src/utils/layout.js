@@ -111,7 +111,7 @@ export function computeViewBox(pos, pad = 80) {
   const ys = Object.values(pos).map(p => p.y)
   const minX = Math.min(...xs) - pad
   const minY = Math.min(...ys) - pad
-  const w    = Math.max(Math.max(...xs) - Math.min(...xs) + pad * 2, 400)
-  const h    = Math.max(Math.max(...ys) - Math.min(...ys) + pad * 2, 300)
+  const w    = Math.max(...xs) - Math.min(...xs) + pad * 2
+  const h    = Math.max(...ys) - Math.min(...ys) + pad * 2
   return `${minX} ${minY} ${w} ${h}`
 }

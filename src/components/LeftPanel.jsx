@@ -12,8 +12,8 @@ export default function LeftPanel({
   hasNFA,
 }) {
   return (
-    <aside className="bg-surface dark:bg-[#16140f] overflow-hidden border-b md:border-b-0 md:border-r border-border dark:border-[#2a2824] md:h-full">
-      <div className="grid grid-cols-2 md:flex md:flex-col md:h-full overflow-hidden space-y-4">
+    <aside className="bg-surface dark:bg-[#16140f] overflow-y-auto min-h-0 border-b md:border-b-0 md:border-r border-border dark:border-[#2a2824] md:h-full">
+      <div className="grid grid-cols-2 md:flex md:flex-col md:min-h-full space-y-4">
 
         {/* Row 1 – Regex input (full width) */}
         <div className="col-span-2 md:col-auto">

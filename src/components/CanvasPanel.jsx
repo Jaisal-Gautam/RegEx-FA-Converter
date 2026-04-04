@@ -1,13 +1,55 @@
+import { useRef } from 'react'
 import AutomatonSVG from './AutomatonSVG'
-import ConstructionSteps from './ConstructionSteps'
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 
 /**
  * CanvasPanel.jsx
  * Renders the automaton on a dot-grid canvas with a construction steps overlay.
  */
-export default function CanvasPanel({ svgData, isDFA, highlightPath, tableData, alphabet, isAnimating, darkMode, postfix, animStep, totalAnimSteps, dfaRaw, nfaLabelMap }) {
+export default function CanvasPanel({ regexVal, svgData, isDFA, highlightPath, tableData, alphabet, isAnimating, darkMode, postfix, animStep, totalAnimSteps, dfaRaw, nfaLabelMap }) {
+  const svgRef = useRef(null)
+
+  const handleDownload = () => {
+    if (!svgRef.current) return;
+    const clone = svgRef.current.cloneNode(true);
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+    // Inject title into exported SVG
+    const viewBox = clone.getAttribute("viewBox");
+    if (viewBox) {
+      const parts = viewBox.split(" ").map(Number);
+      if (parts.length === 4) {
+        const [minX, minY, w, h] = parts;
+        clone.setAttribute("viewBox", `${minX} ${minY - 70} ${w} ${h + 70}`);
+        
+        const textNode = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        textNode.setAttribute("x", minX + w / 2);
+        textNode.setAttribute("y", minY - 25);
+        textNode.setAttribute("text-anchor", "middle");
+        textNode.setAttribute("font-family", "monospace, monospace");
+        textNode.setAttribute("font-size", "22");
+        textNode.setAttribute("font-weight", "bold");
+        textNode.setAttribute("fill", darkMode ? "#e8e4dc" : "#1a1916");
+        textNode.textContent = `Regex: ${regexVal}'s ${isDFA ? 'DFA' : 'E-NFA'}`;
+        
+        clone.prepend(textNode);
+      }
+    }
+
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${regexVal || 'automaton'}_${isDFA ? 'dfa' : 'nfa'}.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="absolute inset-0 overflow-auto md:overflow-hidden canvas-bg">
+    <div className="absolute inset-0 overflow-hidden canvas-bg">
       {!svgData ? (
         /* ── Empty state ── */
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted">
@@ -19,33 +61,50 @@ export default function CanvasPanel({ svgData, isDFA, highlightPath, tableData, 
           </p>
         </div>
       ) : (
-        <AutomatonSVG
-          {...svgData}
-          isDFA={isDFA}
-          highlightPath={highlightPath}
-          svgRef={null}
-          newestStateId={isAnimating && svgData?.states?.length > 0
-            ? svgData.states[svgData.states.length - 1]?.id
-            : null}
-        />
-      )}
+        <TransformWrapper
+          initialScale={1}
+          minScale={0.1}
+          maxScale={4}
+          centerOnInit={true}
+          wheel={{ step: 0.1 }}
+        >
+          {({ zoomIn, zoomOut, resetTransform }) => (
+            <>
+              {/* Regex Title Overlay */}
+              <div className="absolute top-6 inset-x-0 z-10 pointer-events-none flex justify-center">
+                <h2 className="font-mono text-xl md:text-2xl font-bold opacity-80 text-ink dark:text-[#e8e4dc] drop-shadow-sm">
+                  Regex: {regexVal}'s {isDFA ? 'DFA' : 'E-NFA'}
+                </h2>
+              </div>
+              {/* Toolbar */}
+              <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+                <div className="flex bg-surface dark:bg-[#16140f] border border-border/50 dark:border-[#2a2824] rounded-md shadow-sm overflow-hidden backdrop-blur-sm">
+                  <button onClick={() => zoomIn()} title="Zoom In" className="px-3 py-1.5 text-ink/70 hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 font-mono text-lg transition-colors border-r border-border/50 dark:border-[#2a2824]">+</button>
+                  <button onClick={() => zoomOut()} title="Zoom Out" className="px-3 py-1.5 text-ink/70 hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 font-mono text-lg transition-colors border-r border-border/50 dark:border-[#2a2824]">−</button>
+                  <button onClick={() => resetTransform()} title="Reset Zoom" className="px-3 py-2 text-ink/70 hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition-colors border-r border-border/50 dark:border-[#2a2824]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </button>
+                  <button onClick={handleDownload} title="Download SVG" className="px-3 py-2 text-ink/70 hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                  </button>
+                </div>
+              </div>
 
-      {/* ── Construction steps overlay (draggable, NFA + DFA) ── */}
-      {svgData && (
-        (!isDFA && postfix && postfix.length > 0) ||
-        (isDFA && dfaRaw && dfaRaw.dfaStates && dfaRaw.dfaStates.length > 0)
-      ) && (
-        <ConstructionSteps
-          postfix={postfix}
-          dfaRaw={dfaRaw}
-          alphabet={alphabet}
-          isAnimating={isAnimating}
-          animStep={animStep ?? 0}
-          totalAnimSteps={totalAnimSteps ?? 0}
-          isDFA={isDFA}
-          darkMode={darkMode}
-          nfaLabelMap={nfaLabelMap}
-        />
+              <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                <AutomatonSVG
+                  {...svgData}
+                  isDFA={isDFA}
+                  highlightPath={highlightPath}
+                  svgRef={svgRef}
+                  darkMode={darkMode}
+                  newestStateId={isAnimating && svgData?.states?.length > 0
+                    ? svgData.states[svgData.states.length - 1]?.id
+                    : null}
+                />
+              </TransformComponent>
+            </>
+          )}
+        </TransformWrapper>
       )}
     </div>
   )

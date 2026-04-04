@@ -12,6 +12,7 @@ const TABS = [
  * Tab bar + three panels: NFA canvas, DFA canvas, Transition Table.
  */
 export default function RightPanel({
+  regexVal,
   activeTab, onTabChange,
   nfaSvgData,
   dfaSvgData,
@@ -28,9 +29,12 @@ export default function RightPanel({
   darkMode,
   postfix,
   nfaLabelMap,
+  hasSteps,
+  stepsHidden,
+  onToggleSteps,
 }) {
   return (
-    <div className="flex flex-col overflow-hidden flex-1 md:h-full md:flex-none">
+    <div className="flex flex-col min-h-0 overflow-hidden flex-1 md:h-full md:flex-none">
       {/* ── Tab bar ── */}
       <div className="flex flex-shrink-0 border-b border-border dark:border-[#2a2824] bg-surface dark:bg-[#16140f] px-6 items-center">
         {TABS.map(({ id, label, activeClass }) => (
@@ -53,12 +57,28 @@ export default function RightPanel({
             </span>
           </div>
         )}
+        
+        {/* Toggle Steps Button */}
+        {hasSteps && (
+          <button
+            onClick={onToggleSteps}
+            className={`ml-auto md:ml-4 px-3 py-1.5 text-xs font-mono font-bold uppercase tracking-wide border rounded transition-colors ${
+              stepsHidden
+                ? 'text-accent border-accent/30 hover:bg-accent/10 dark:text-[#a878d8] dark:border-[#a878d8]/30 dark:hover:bg-[#a878d8]/10'
+                : 'text-muted border-border/50 hover:text-ink hover:border-border dark:text-[#5a5650] dark:border-[#2a2824] dark:hover:text-[#e8e4dc]'
+            }`}
+            title={stepsHidden ? 'Show Construction Steps' : 'Hide Construction Steps'}
+          >
+            {stepsHidden ? '+ Steps' : '- Steps'}
+          </button>
+        )}
       </div>
 
       {/* ── Panels ── */}
       <div className="flex-1 overflow-hidden relative">
         {activeTab === 'nfa' && (
           <CanvasPanel
+            regexVal={regexVal}
             svgData={nfaSvgData}
             isDFA={false}
             highlightPath={null}
@@ -75,6 +95,7 @@ export default function RightPanel({
 
         {activeTab === 'dfa' && (
           <CanvasPanel
+            regexVal={regexVal}
             svgData={dfaSvgData}
             isDFA={true}
             highlightPath={isAnimating ? null : dfaHighlight}

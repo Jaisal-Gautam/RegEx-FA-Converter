@@ -45,7 +45,14 @@ export default function TransitionTable({ regexVal, nfaData, dfaData, alphabet, 
   }
 
   return (
-    <div className="absolute inset-0 overflow-auto p-6 bg-bg dark:bg-[#0f0e0c] scrollbar-thin flex flex-col gap-6">
+    <div className="absolute inset-0 overflow-auto p-6 pt-16 bg-bg dark:bg-[#0f0e0c] scrollbar-thin flex flex-col gap-6">
+
+      {/* Regex Title Overlay (Matching CanvasPanel exactly) */}
+      <div className="absolute top-6 inset-x-0 z-10 pointer-events-none flex justify-center">
+        <h2 className="font-mono text-xl md:text-2xl font-bold opacity-80 text-ink dark:text-[#e8e4dc] drop-shadow-sm">
+          Regex: {regexVal}'s {showDFA ? 'DFA' : 'E-NFA'}
+        </h2>
+      </div>
 
       <div className="flex items-center justify-between">
         {/* ── View Toggle ── */}
@@ -78,8 +85,8 @@ export default function TransitionTable({ regexVal, nfaData, dfaData, alphabet, 
         </div>
 
         {/* ── Toolbar ── */}
-        <div className="flex bg-surface dark:bg-[#16140f] border border-border/50 dark:border-[#2a2824] rounded-md shadow-sm overflow-hidden backdrop-blur-sm">
-          <button onClick={handleDownloadWithTable} title="Download Table with Diagram as PNG" className="px-3 py-2 text-primary hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition-colors">
+        <div className="flex bg-surface dark:bg-[#16140f] border border-border/50 dark:border-[#2a2824] rounded-md shadow-sm overflow-hidden backdrop-blur-sm relative z-20">
+          <button onClick={handleDownloadWithTable} title="Download Table with Diagram as PNG" className="px-3 py-2 text-ink/70 dark:text-[#e8e4dc]/70 hover:text-ink dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center transition-colors">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
             <span className="ml-2 font-mono text-xs font-bold">Export Image</span>
           </button>

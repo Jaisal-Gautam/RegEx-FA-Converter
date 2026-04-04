@@ -283,27 +283,6 @@ export default function ConstructionSteps({
           {steps.length} {isDFA ? 'steps' : 'ops'}
         </span>
         
-        {/* Hide Button */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onClose?.() }}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: 12,
-            color: darkMode ? '#5a5650' : '#aaa59c',
-            padding: '4px 6px',
-            marginLeft: 4,
-            borderRadius: 4,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          title="Hide Construction Steps"
-        >
-          ✕
-        </button>
       </div>
 
       {/* ── Steps list with vertical timeline ── */}

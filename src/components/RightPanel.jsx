@@ -10,6 +10,7 @@ const TABS = [
 /**
  * RightPanel.jsx
  * Tab bar + three panels: NFA canvas, DFA canvas, Transition Table.
+ * The NFA canvas automatically shows the sub-NFA result if the user is stepping in the builder.
  */
 export default function RightPanel({
   regexVal,
@@ -32,6 +33,9 @@ export default function RightPanel({
   hasSteps,
   stepsHidden,
   onToggleSteps,
+  constructionSteps,
+  builderStep,
+  setBuilderStep,
 }) {
   return (
     <div className="flex flex-col flex-1 min-h-[500px] md:min-h-0 overflow-hidden md:h-full md:flex-none">
@@ -57,7 +61,7 @@ export default function RightPanel({
             </span>
           </div>
         )}
-        
+
         {/* Toggle Steps Button */}
         {hasSteps && (
           <button

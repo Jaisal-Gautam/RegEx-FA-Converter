@@ -100,6 +100,9 @@ export default function CanvasPanel({ regexVal, svgData, isDFA, highlightPath, t
                   newestStateId={isAnimating && svgData?.states?.length > 0
                     ? svgData.states[svgData.states.length - 1]?.id
                     : null}
+                  newStateIds={svgData?.newStateIds}
+                  newTransKeys={svgData?.newTransKeys}
+                  animKey={svgData?.animKey}
                 />
               </TransformComponent>
             </>

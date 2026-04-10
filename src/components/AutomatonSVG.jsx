@@ -22,7 +22,7 @@ const ROLE_DESC = {
  * ε-transitions are coloured and styled by their semantic role.
  * Hovering an ε edge shows a tooltip with its role description.
  */
-export default function AutomatonSVG({ states, transitions, pos, startId, acceptIds, isDFA, highlightPath, svgRef, newestStateId, darkMode }) {
+export default function AutomatonSVG({ states, transitions, pos, startId, acceptIds, isDFA, highlightPath, svgRef, newestStateId, darkMode, newStateIds, newTransKeys, animKey }) {
   const [tooltip, setTooltip] = useState(null) // { x, y, text }
 
   const accentColor = isDFA ? '#3a5a8c' : '#2d6a4f'
@@ -112,9 +112,13 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
           ? `arr-eps-${epsStyle.stroke.replace('#', '')}-${markerId}`
           : `arr-${markerId}`
 
+        const isNew = newTransKeys instanceof Set
+          ? newTransKeys.has(`${t.from}-${t.to}-${t.symbol}`)
+          : false
+
         return (
           <g
-            key={i}
+            key={`${animKey ?? ''}-${i}`}
             style={{ cursor: isEps ? 'help' : 'default' }}
             onMouseEnter={isEps ? (e) => handleEpsMove(e, t.role) : undefined}
             onMouseMove={isEps  ? (e) => handleEpsMove(e, t.role) : undefined}
@@ -132,9 +136,14 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
             <path
               d={curvePath(p1.x, p1.y, p2.x, p2.y, bend)}
               fill="none"
-              stroke={stroke}
-              strokeWidth={isHL ? 2.5 : 1.5}
-              strokeDasharray={dashArray}
+              stroke={isNew ? (isEps ? stroke : '#2d6a4f') : stroke}
+              strokeWidth={isNew ? 2.5 : (isHL ? 2.5 : 1.5)}
+              strokeDasharray={isNew ? '1 0' : dashArray}
+              style={isNew ? {
+                animation: 'edge-draw 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both',
+                strokeDasharray: '1000',
+                strokeDashoffset: '1000',
+              } : undefined}
               opacity={isEps ? 0.82 : 1}
               markerEnd={`url(#${arrowId})`}
             />
@@ -162,21 +171,37 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
         const p = pos[s.id]
         if (!p) return null
 
-        const isAccept = acceptIds.has(s.id)
-        const isHL     = highlightPath?.[highlightPath.length - 1] === s.id
-        const isNewest = newestStateId != null && s.id === newestStateId
-        const stroke   = isAccept || s.isStart ? accentColor : '#b0aa9a'
-        const fill     = isHL     ? (isDFA ? '#dde6f5' : '#d8ede4')
+        const isAccept   = acceptIds.has(s.id)
+        const isDead     = !!s.isDead
+        const isHL       = highlightPath?.[highlightPath.length - 1] === s.id
+        const isNewest   = newestStateId != null && s.id === newestStateId
+        const isNewState = newStateIds instanceof Set && newStateIds.has(s.id)
+        const stroke   = isDead   ? '#b0aa9a'
+                       : isAccept || s.isStart ? accentColor : '#b0aa9a'
+        const fill     = isDead   ? (darkMode ? '#1e1c18' : '#f0eeea')
+                       : isHL     ? (isDFA ? '#dde6f5' : '#d8ede4')
+                       : isNewState ? (isDFA ? '#c8d9f0' : '#c2e4d0')
                        : isNewest ? (isDFA ? '#c8d9f0' : '#c2e4d0')
                        : '#ffffff'
 
+        const transformOrigin = `${p.x}px ${p.y}px`
+
         return (
-          <g key={s.id} style={isNewest ? { animation: 'state-pop 0.4s cubic-bezier(0.34,1.56,0.64,1)' } : undefined}>
+          <g
+            key={`${animKey ?? ''}-${s.id}`}
+            style={isNewState ? {
+              animation: 'state-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
+              transformOrigin,
+              transformBox: 'fill-box',
+            } : undefined}
+          >
             <circle
               cx={p.x} cy={p.y} r={R}
               fill={fill}
-              stroke={isNewest ? accentColor : (isHL ? accentColor : stroke)}
-              strokeWidth={isNewest ? 3 : (s.isStart ? 2.5 : 2)}
+              stroke={isNewState ? accentColor : (isHL ? accentColor : stroke)}
+              strokeWidth={isDead ? 1.5 : (isNewState ? 3 : (s.isStart ? 2.5 : 2))}
+              strokeDasharray={isDead ? '5,3' : undefined}
+              opacity={isDead ? 0.7 : 1}
             />
             {isAccept && (
               <circle
@@ -190,7 +215,7 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
               x={p.x} y={p.y}
               textAnchor="middle"
               dominantBaseline="central"
-              fill="#1e1c18"
+              fill={isDead ? (darkMode ? '#7a756a' : '#9a9590') : '#1e1c18'}
               fontFamily="'JetBrains Mono', monospace"
               fontSize="11"
               fontWeight="600"
@@ -204,7 +229,18 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
 
       {/* ── Animation keyframes ── */}
       <defs>
-        <style>{'@keyframes state-pop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }'}</style>
+        <style>{
+          `@keyframes state-pop {
+            from { transform: scale(0.1); opacity: 0; }
+            40%  { transform: scale(1.15); opacity: 1; }
+            to   { transform: scale(1);   opacity: 1; }
+          }
+          @keyframes edge-draw {
+            from { stroke-dashoffset: 1; opacity: 0; }
+            20%  { opacity: 1; }
+            to   { stroke-dashoffset: 0; opacity: 1; }
+          }`
+        }</style>
       </defs>
 
       {/* ── Hover tooltip ── */}

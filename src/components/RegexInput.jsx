@@ -1,6 +1,6 @@
 import SectionTitle from './SectionTitle'
 
-const EXAMPLES = ['(a|b)*abb', 'a*b*', '(ab)+', 'a?(b|c)*', '(0|1)*01', 'aa*|bb*']
+const EXAMPLES = ['(a+b)*.a.b.b', 'a*.b*', '(a.b)*', 'a+(b.c)*', '(0+1)*.0.1', 'a.a*+b.b*']
 
 /**
  * RegexInput.jsx
@@ -18,7 +18,7 @@ export default function RegexInput({ value, onChange, onBuild, error }) {
         onKeyDown={e => e.key === 'Enter' && onBuild()}
         spellCheck={false}
         autoComplete="off"
-        placeholder="e.g. (a|b)*abb"
+        placeholder="e.g. (a+b)*.a.b.b"
       />
 
       {error && (
@@ -28,11 +28,9 @@ export default function RegexInput({ value, onChange, onBuild, error }) {
       {/* Syntax guide — hidden on mobile, shown on tablet/desktop */}
       <ul className="hidden md:grid mt-2 grid-cols-2 gap-x-4 gap-y-0.5 font-mono text-[0.7rem] text-muted">
         {[
-          ['a|b', 'union'],
-          ['ab',  'concat'],
-          ['a*',  'star'],
-          ['a+',  'plus'],
-          ['a?',  'optional'],
+          ['a+b', 'union / or'],
+          ['a.b', 'concat / and'],
+          ['a*',  'star / closure'],
           ['()',  'group'],
         ].map(([op, desc]) => (
           <li key={op} className="flex items-center gap-1.5">

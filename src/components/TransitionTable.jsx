@@ -204,15 +204,20 @@ function DFATable({ dfaData, alphabet }) {
             {dfaStates.map(s => (
               <tr
                 key={s.id}
-                className={`${s.isStart ? 'bg-accent/5 dark:bg-accent/10' : 'dark:bg-[#16140f]'} ${s.isAccept ? 'bg-accent/8 dark:bg-accent/10' : ''}`}
+                className={`${s.isDead ? 'opacity-60' : ''} ${s.isStart ? 'bg-accent/5 dark:bg-accent/10' : 'dark:bg-[#16140f]'} ${s.isAccept ? 'bg-accent/8 dark:bg-accent/10' : ''}`}
               >
-                <Td>{s.isStart ? '→' : ''}{s.isAccept ? '*' : ''}D{s.id}</Td>
+                <Td>
+                  {s.isStart ? '→' : ''}{s.isAccept ? '*' : ''}D{s.id}
+                  {s.isDead && <span className="ml-1 text-[0.6rem] opacity-60 italic">(dead)</span>}
+                </Td>
                 <Td className="text-muted text-[0.7rem]">
-                  {'{' + s.nfaStates.map(i => 'q' + i).join(',') + '}'}
+                  {s.isDead ? '∅' : '{' + s.nfaStates.map(i => 'q' + i).join(',') + '}'}
                 </Td>
                 {alphabet.map(sym => {
                   const t = dfaTrans.find(t => t.from === s.id && t.symbol === sym)
-                  return <Td key={sym}>{t ? 'D' + t.to : '∅'}</Td>
+                  const targetState = t ? dfaStates.find(ds => ds.id === t.to) : null
+                  const isDead = targetState?.isDead
+                  return <Td key={sym} className={isDead ? 'opacity-50' : ''}>{t ? 'D' + t.to : '∅'}</Td>
                 })}
               </tr>
             ))}
@@ -301,10 +306,10 @@ function ExportDFATable({ dfaData, alphabet }) {
         {dfaStates.map(s => (
           <tr
             key={s.id}
-            className={`${s.isStart ? 'bg-accent/5' : ''} ${s.isAccept ? 'bg-accent/8' : ''}`}
+            className={`${s.isDead ? 'opacity-60' : ''} ${s.isStart ? 'bg-accent/5' : ''} ${s.isAccept ? 'bg-accent/8' : ''}`}
           >
-            <TdE bold>{s.isStart ? '→ ' : ''}{s.isAccept ? '* ' : ''}D{s.id}</TdE>
-            <TdE muted>{'{' + s.nfaStates.map(i => 'q' + i).join(', ') + '}'}</TdE>
+            <TdE bold>{s.isStart ? '→ ' : ''}{s.isAccept ? '* ' : ''}D{s.id}{s.isDead ? ' (dead)' : ''}</TdE>
+            <TdE muted>{s.isDead ? '∅' : '{' + s.nfaStates.map(i => 'q' + i).join(', ') + '}'}</TdE>
             {alphabet ? alphabet.map(sym => {
               const t = dfaTrans.find(t => t.from === s.id && t.symbol === sym)
               return <TdE key={sym}>{t ? 'D' + t.to : '∅'}</TdE>

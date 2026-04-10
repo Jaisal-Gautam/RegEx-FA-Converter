@@ -1,12 +1,13 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   compileRegex,
+  compileRegexWithSteps,
   collectStates,
   flattenTransitions,
   extractAlphabet,
 } from "../utils/thompson";
 import { subsetConstruction, simulateDFA, simulateNFA } from "../utils/subset";
-import { layoutNFA, layoutDFA } from "../utils/layout";
+import { layoutNFA, layoutDFA, layoutSubNFA } from "../utils/layout";
 
 /**
  * Build an array of incremental NFA frames (one new state revealed per frame).
@@ -91,6 +92,10 @@ export function useAutomaton(initialRegex = "") {
   const [postfix, setPostfix] = useState([]);
   const [alphabet, setAlphabet] = useState([]);
   const [rawNFA, setRawNFA] = useState(null);
+
+  // Construction steps for step-by-step builder
+  const [constructionSteps, setConstructionSteps] = useState([]);
+  const [builderStep, setBuilderStep] = useState(0);
 
   // DFA
   const [dfaSvgData, setDfaSvgData] = useState(null);
@@ -181,7 +186,7 @@ export function useAutomaton(initialRegex = "") {
     }
 
     try {
-      const { nfa, postfix: pf } = compileRegex(regexVal);
+      const { nfa, postfix: pf, constructionSteps: cSteps } = compileRegexWithSteps(regexVal);
       const states = collectStates(nfa.start);
       const allTrans = flattenTransitions(states);
       const alpha = extractAlphabet(allTrans);
@@ -194,6 +199,8 @@ export function useAutomaton(initialRegex = "") {
       setPostfix(pf);
       setAlphabet(alpha);
       setRawNFA({ nfa, states, allTrans, labelMap });
+      setConstructionSteps(cSteps);
+      setBuilderStep(cSteps.length > 0 ? cSteps.length - 1 : 0); // Start at final step
 
       const finalSvg = {
         states: states.map((s) => ({ ...s, label: labelMap.get(s.id) ?? `q${s.id}` })),
@@ -287,26 +294,93 @@ export function useAutomaton(initialRegex = "") {
     buildNFA();
   }, []); // eslint-disable-line
 
-  // The "live" SVG to render — during animation show the current frame;
-  // otherwise show the full final diagram.
-  const liveNfaSvgData =
-    isAnimating && !animIsDFA && animFrames.length > 0
-      ? animFrames[animStep]
-      : nfaSvgData;
+  // ── Track previous snapshot for step-change animation ──────────────────────
+  const prevBuilderStepRef = useRef(-1)
+  const prevSnapshotRef    = useRef(null)
+
+  const liveNfaSvgData = useMemo(() => {
+    if (isAnimating && !animIsDFA && animFrames.length > 0) {
+      return animFrames[animStep];
+    }
+    
+    // Step builder rendering
+    if (activeTab === "nfa" && constructionSteps.length > 0) {
+      if (builderStep < constructionSteps.length - 1) {
+        const step = constructionSteps[builderStep];
+        const snapshot = step.stackSnapshot;
+        if (snapshot && snapshot.states.length > 0) {
+          const pos = layoutSubNFA(snapshot.states, snapshot.transitions, snapshot.startIds);
+          const acceptIds = new Set(snapshot.acceptIds);
+
+          // Determine which state IDs and transition keys are new this step
+          const prevSnap = prevSnapshotRef.current
+          const prevStateIds = prevSnap ? new Set(prevSnap.states.map(s => s.id)) : new Set()
+          const newStateIds  = new Set(snapshot.states.filter(s => !prevStateIds.has(s.id)).map(s => s.id))
+
+          // Transition key = `${from}-${to}-${symbol}`
+          const prevTransKeys = prevSnap
+            ? new Set(prevSnap.transitions.map(t => `${t.from}-${t.to}-${t.symbol}`))
+            : new Set()
+          const newTransKeys = new Set(
+            snapshot.transitions
+              .filter(t => !prevTransKeys.has(`${t.from}-${t.to}-${t.symbol}`))
+              .map(t => `${t.from}-${t.to}-${t.symbol}`)
+          )
+
+          // Save snapshot for the NEXT diff (only when step changes)
+          if (prevBuilderStepRef.current !== builderStep) {
+            prevBuilderStepRef.current = builderStep
+            prevSnapshotRef.current    = snapshot
+          }
+
+          return {
+            states: snapshot.states.map(s => ({
+              ...s,
+              label: rawNFA.labelMap.get(s.id) ?? `q${s.id}`,
+            })),
+            transitions: snapshot.transitions,
+            pos,
+            startId: snapshot.startIds[0],
+            acceptIds,
+            newStateIds,
+            newTransKeys,
+            animKey: builderStep,   // signal to AutomatonSVG to re-trigger animation
+          };
+        }
+      }
+    }
+    
+    return nfaSvgData; // Final complete NFA
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAnimating, animIsDFA, animFrames, animStep, activeTab, constructionSteps, builderStep, nfaSvgData, rawNFA]);
 
   const liveDfaSvgData =
     isAnimating && animIsDFA && animFrames.length > 0
       ? animFrames[animStep]
       : dfaSvgData;
 
-  // Table data to show in the canvas overlay — mirrors the current animation frame
-  const liveNfaTableData =
-    isAnimating && !animIsDFA && animFrames.length > 0
-      ? {
-          states: animFrames[animStep].states,
-          transitions: animFrames[animStep].transitions,
-        }
-      : nfaTableData;
+  // Table data to show in the canvas overlay — mirrors the current animation frame or builder step
+  const liveNfaTableData = (() => {
+    if (isAnimating && !animIsDFA && animFrames.length > 0) {
+      return {
+        states: animFrames[animStep].states,
+        transitions: animFrames[animStep].transitions,
+      };
+    }
+    
+    if (activeTab === "nfa" && constructionSteps.length > 0 && builderStep < constructionSteps.length - 1) {
+      const step = constructionSteps[builderStep];
+      const snapshot = step.stackSnapshot;
+      if (snapshot && snapshot.states.length > 0) {
+         return {
+           states: snapshot.states,
+           transitions: snapshot.transitions,
+         };
+      }
+    }
+
+    return nfaTableData;
+  })();
 
   // For the DFA overlay table, CanvasPanel passes tableData → MiniDFATable({dfaData})
   // which expects { dfaStates, dfaTrans }, so we reshape the animation frame accordingly.
@@ -334,6 +408,8 @@ export function useAutomaton(initialRegex = "") {
     setPostfix([]);
     setAnimFrames([]);
     setIsAnimating(false);
+    setConstructionSteps([]);
+    setBuilderStep(0);
   }, []);
 
   return {
@@ -370,5 +446,8 @@ export function useAutomaton(initialRegex = "") {
     hasDFA: !!dfaRaw,
     nfaLabelMap: rawNFA?.labelMap ?? null,
     goToStep,
+    constructionSteps,
+    builderStep,
+    setBuilderStep,
   };
 }

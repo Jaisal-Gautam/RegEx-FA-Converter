@@ -14,18 +14,19 @@ const DEFAULT_PAD_Y = 60
  *
  * @param {(id: number) => number[]} adjFn  - adjacency list for a node id
  * @param {number[]} nodeIds                - all node ids
- * @param {number}   startId               - root node
+ * @param {number|number[]} startIds       - root node(s)
  * @param {number}   W                     - horizontal spacing
  * @param {number}   H                     - vertical spacing
  * @param {number}   padX                  - left padding
  * @param {number}   padY                  - top-centre padding
  * @returns {Record<number, {x:number, y:number}>}
  */
-function bfsLayout(adjFn, nodeIds, startId, W, H, padX, padY) {
+function bfsLayout(adjFn, nodeIds, startIds, W, H, padX, padY) {
   const visited = new Set()
   const layers  = []
-  const queue   = [[startId]]
-  visited.add(startId)
+  const initialLayer = Array.isArray(startIds) ? startIds : [startIds]
+  const queue   = [initialLayer]
+  initialLayer.forEach(id => visited.add(id))
 
   while (queue.length) {
     const layer = queue.shift()
@@ -115,3 +116,32 @@ export function computeViewBox(pos, pad = 80) {
   const h    = Math.max(...ys) - Math.min(...ys) + pad * 2
   return `${minX} ${minY} ${w} ${h}`
 }
+
+/**
+ * Layout a small Thompson sub-NFA (or multiple parallel sub-NFAs) for step-by-step display.
+ * Optimised for 2–8 state sub-automata with tighter spacing.
+ *
+ * @param {{ id:number, isStart:boolean }[]} states
+ * @param {{ from:number, to:number }[]} transitions
+ * @param {number|number[]} startIds
+ * @returns {Record<number, {x:number, y:number}>}
+ */
+export function layoutSubNFA(states, transitions, startIds) {
+  const adj = Object.fromEntries(states.map(s => [s.id, []]))
+  transitions.forEach(t => {
+    if (adj[t.from] && !adj[t.from].includes(t.to)) {
+      adj[t.from].push(t.to)
+    }
+  })
+
+  return bfsLayout(
+    id => adj[id] ?? [],
+    states.map(s => s.id),
+    startIds,
+    120,   // W — tighter horizontal spacing
+    100,   // H — tighter vertical spacing
+    60,    // padX
+    50,    // padY
+  )
+}
+

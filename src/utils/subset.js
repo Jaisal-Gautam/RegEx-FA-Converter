@@ -60,6 +60,7 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
     nfaStates: startClosure,
     isAccept:  startClosure.some(id => acceptIds.has(id)),
     isStart:   true,
+    isDead:    false,
   })
 
   while (queue.length) {
@@ -82,6 +83,7 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
           nfaStates: closure,
           isAccept:  closure.some(id => acceptIds.has(id)),
           isStart:   false,
+          isDead:    false,
         })
         queue.push(closure)
       } else {
@@ -89,6 +91,44 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
       }
 
       dfaTrans.push({ from: currentId, to: targetId, symbol: sym })
+    }
+  }
+
+  // ── Add dead (trap/sink) state if any transitions are missing ───────────
+  // A complete DFA requires every state to have exactly one transition per
+  // alphabet symbol.  If any (state, symbol) pair lacks a transition, we
+  // create a single non-accepting "dead state" and route all missing
+  // transitions there (including self-loops on the dead state itself).
+
+  const transSet = new Set(dfaTrans.map(t => `${t.from},${t.symbol}`))
+  let needsDead = false
+  for (const s of dfaStates) {
+    for (const sym of alphabet) {
+      if (!transSet.has(`${s.id},${sym}`)) {
+        needsDead = true
+        break
+      }
+    }
+    if (needsDead) break
+  }
+
+  if (needsDead) {
+    const deadId = dfaStates.length
+    dfaStates.push({
+      id:        deadId,
+      nfaStates: [],          // corresponds to the empty set ∅
+      isAccept:  false,
+      isStart:   false,
+      isDead:    true,
+    })
+
+    // Route missing transitions to the dead state
+    for (const s of dfaStates) {
+      for (const sym of alphabet) {
+        if (!transSet.has(`${s.id},${sym}`)) {
+          dfaTrans.push({ from: s.id, to: deadId, symbol: sym })
+        }
+      }
     }
   }
 

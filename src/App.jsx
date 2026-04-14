@@ -10,8 +10,10 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false)
   const [stepsHidden, setStepsHidden] = useState(false)
 
-  // When there are construction steps, always show the sidebar in NFA tab
-  const hasSteps = automaton.activeTab === 'nfa' && automaton.constructionSteps?.length > 0
+  // When there are construction steps, show the sidebar
+  const hasSteps = 
+    (automaton.activeTab === 'nfa' && automaton.constructionSteps?.length > 0) ||
+    (automaton.activeTab === 'dfa' && automaton.dfaConstructionSteps?.length > 0)
   
   const showSteps = hasSteps && !stepsHidden
 
@@ -60,18 +62,19 @@ export default function App() {
           hasSteps={hasSteps}
           stepsHidden={stepsHidden}
           onToggleSteps={() => setStepsHidden(!stepsHidden)}
-          constructionSteps={automaton.constructionSteps}
-          builderStep={automaton.builderStep}
-          setBuilderStep={automaton.setBuilderStep}
+          constructionSteps={automaton.activeTab === 'nfa' ? automaton.constructionSteps : automaton.dfaConstructionSteps}
+          builderStep={automaton.activeTab === 'nfa' ? automaton.builderStep : automaton.dfaBuilderStep}
+          setBuilderStep={automaton.activeTab === 'nfa' ? automaton.setBuilderStep : automaton.setDfaBuilderStep}
         />
 
-        {showSteps && automaton.activeTab === 'nfa' && (
+        {showSteps && (
           <StepBuilderSidebar
-            constructionSteps={automaton.constructionSteps}
-            builderStep={automaton.builderStep}
-            setBuilderStep={automaton.setBuilderStep}
+            constructionSteps={automaton.activeTab === 'nfa' ? automaton.constructionSteps : automaton.dfaConstructionSteps}
+            builderStep={automaton.activeTab === 'nfa' ? automaton.builderStep : automaton.dfaBuilderStep}
+            setBuilderStep={automaton.activeTab === 'nfa' ? automaton.setBuilderStep : automaton.setDfaBuilderStep}
             darkMode={darkMode}
             onClose={() => setStepsHidden(true)}
+            isDFA={automaton.activeTab === 'dfa'}
           />
         )}
 

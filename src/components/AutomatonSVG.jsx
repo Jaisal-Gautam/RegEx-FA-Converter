@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { curvePath, labelPos, computeBends, getEpsStyle, STATE_RADIUS } from '../utils/svgHelpers'
 import { computeViewBox } from '../utils/layout'
 
@@ -19,8 +19,10 @@ const ROLE_DESC = {
 /**
  * AutomatonSVG.jsx
  * Declarative SVG renderer for NFA and DFA graphs.
- * ε-transitions are coloured and styled by their semantic role.
- * Hovering an ε edge shows a tooltip with its role description.
+ * Features:
+ * - 3-layer rendering (Edges -> States -> Labels) for textbook clarity.
+ * - Pill Badges for transition labels to ensure readability.
+ * - Smart merged labels (e.g., 'a, b') for parallel edges.
  */
 export default function AutomatonSVG({ states, transitions, pos, startId, acceptIds, isDFA, highlightPath, svgRef, newestStateId, darkMode, newStateIds, newTransKeys, animKey }) {
   const [tooltip, setTooltip] = useState(null) // { x, y, text }
@@ -28,7 +30,28 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
   const accentColor = isDFA ? '#3a5a8c' : '#2d6a4f'
   const markerId    = isDFA ? 'dfa' : 'nfa'
   const viewBox     = computeViewBox(pos)
-  const bends       = computeBends(transitions)
+
+  // Merge transitions sharing same from/to states
+  const mergedTransitions = useMemo(() => {
+    const groups = {}
+    transitions.forEach(t => {
+      const key = `${t.from}-${t.to}`
+      if (!groups[key]) {
+        groups[key] = { ...t, originalSymbols: new Set() }
+      }
+      groups[key].originalSymbols.add(t.symbol)
+    })
+    return Object.values(groups).map(t => {
+      const symbols = Array.from(t.originalSymbols).sort()
+      return {
+        ...t,
+        symbol: symbols.join(', '),
+        originalSymbols: symbols
+      }
+    })
+  }, [transitions])
+
+  const bends = computeBends(mergedTransitions)
 
   // Collect all unique ε stroke colours to generate one arrowhead marker per colour
   const epsMarkers = isDFA ? [] : (() => {
@@ -62,17 +85,12 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
       onMouseLeave={() => setTooltip(null)}
     >
       <defs>
-        {/* Default arrowhead (symbol transitions) */}
         <marker id={`arr-${markerId}`} markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
           <polygon points="0 0, 8 3, 0 6" fill="#9a9a8a" />
         </marker>
-
-        {/* Start-state arrowhead */}
         <marker id={`arr-start-${markerId}`} markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
           <polygon points="0 0, 8 3, 0 6" fill={accentColor} />
         </marker>
-
-        {/* One arrowhead marker per unique ε colour */}
         {epsMarkers.map(color => (
           <marker
             key={color}
@@ -95,78 +113,52 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
         />
       )}
 
-      {/* ── Transition edges ── */}
-      {transitions.map((t, i) => {
+      {/* ── Layer 1: Transition Edge Paths ── */}
+      {mergedTransitions.map((t, i) => {
         const p1 = pos[t.from], p2 = pos[t.to]
         if (!p1 || !p2) return null
 
-        const bend     = bends[i]
+        const bend = bends[i]
         const epsStyle = getEpsStyle(t)
-        const isEps    = !!epsStyle
-        const isHL     = highlightPath?.includes(t.from) && highlightPath?.includes(t.to)
-        const lp       = labelPos(p1.x, p1.y, p2.x, p2.y, bend)
-
-        const stroke    = isHL ? '#2d6a4f' : isEps ? epsStyle.stroke : '#b0aa9a'
+        const isEps = !!epsStyle
+        const isHL = highlightPath?.includes(t.from) && highlightPath?.includes(t.to)
+        const stroke = isHL ? '#2d6a4f' : isEps ? epsStyle.stroke : '#b0aa9a'
         const dashArray = isEps ? epsStyle.dash : undefined
-        const arrowId   = isEps
-          ? `arr-eps-${epsStyle.stroke.replace('#', '')}-${markerId}`
-          : `arr-${markerId}`
-
+        const arrowId = isEps ? `arr-eps-${epsStyle.stroke.replace('#', '')}-${markerId}` : `arr-${markerId}`
+        
         const isNew = newTransKeys instanceof Set
-          ? newTransKeys.has(`${t.from}-${t.to}-${t.symbol}`)
+          ? t.originalSymbols?.some(sym => newTransKeys.has(`${t.from}-${t.to}-${sym}`))
           : false
 
         return (
-          <g
-            key={`${animKey ?? ''}-${i}`}
-            style={{ cursor: isEps ? 'help' : 'default' }}
-            onMouseEnter={isEps ? (e) => handleEpsMove(e, t.role) : undefined}
-            onMouseMove={isEps  ? (e) => handleEpsMove(e, t.role) : undefined}
-            onMouseLeave={isEps ? () => setTooltip(null)           : undefined}
-          >
-            {/* Wide invisible hit area for easy hover on thin ε arcs */}
+          <g key={`path-${animKey ?? ''}-${i}`} style={{ cursor: isEps ? 'help' : 'default' }}>
             {isEps && (
               <path
                 d={curvePath(p1.x, p1.y, p2.x, p2.y, bend)}
-                fill="none"
-                stroke="transparent"
-                strokeWidth="12"
+                fill="none" stroke="transparent" strokeWidth="12"
+                onMouseEnter={(e) => handleEpsMove(e, t.role)}
+                onMouseMove={(e) => handleEpsMove(e, t.role)}
+                onMouseLeave={() => setTooltip(null)}
               />
             )}
             <path
               d={curvePath(p1.x, p1.y, p2.x, p2.y, bend)}
               fill="none"
               stroke={isNew ? (isEps ? stroke : '#2d6a4f') : stroke}
-              strokeWidth={isNew ? 2.5 : (isHL ? 2.5 : 1.5)}
-              strokeDasharray={isNew ? '1 0' : dashArray}
+              strokeWidth={isNew ? 3 : (isHL ? 2.5 : 1.5)}
+              strokeDasharray={isNew ? '1000' : dashArray}
               style={isNew ? {
-                animation: 'edge-draw 0.5s cubic-bezier(0.25,0.46,0.45,0.94) both',
-                strokeDasharray: '1000',
-                strokeDashoffset: '1000',
+                animation: 'edge-draw 0.6s cubic-bezier(0.25,0.46,0.45,0.94) both',
+                filter: `drop-shadow(0 0 3px ${isEps ? stroke : '#2d6a4f'}88)`,
               } : undefined}
               opacity={isEps ? 0.82 : 1}
               markerEnd={`url(#${arrowId})`}
             />
-            <text
-              x={lp.x} y={lp.y}
-              textAnchor="middle"
-              fill={darkMode ? '#e8e4dc' : '#1e1c18'}
-              fontFamily="'JetBrains Mono', monospace"
-              fontSize="12"
-              fontWeight="600"
-              style={{ pointerEvents: 'none', userSelect: 'none' }}
-              paintOrder="stroke fill"
-              stroke={darkMode ? '#16140f' : '#ffffff'}
-              strokeWidth="5"
-              strokeLinejoin="round"
-            >
-              {t.symbol}
-            </text>
           </g>
         )
       })}
 
-      {/* ── States ── */}
+      {/* ── Layer 2: States ── */}
       {states.map((s) => {
         const p = pos[s.id]
         if (!p) return null
@@ -182,13 +174,13 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
                        : isHL     ? (isDFA ? '#dde6f5' : '#d8ede4')
                        : isNewState ? (isDFA ? '#c8d9f0' : '#c2e4d0')
                        : isNewest ? (isDFA ? '#c8d9f0' : '#c2e4d0')
-                       : '#ffffff'
+                       : (darkMode ? '#1a1916' : '#ffffff')
 
         const transformOrigin = `${p.x}px ${p.y}px`
 
         return (
           <g
-            key={`${animKey ?? ''}-${s.id}`}
+            key={`state-${animKey ?? ''}-${s.id}`}
             style={isNewState ? {
               animation: 'state-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both',
               transformOrigin,
@@ -198,30 +190,79 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
             <circle
               cx={p.x} cy={p.y} r={R}
               fill={fill}
-              stroke={isNewState ? accentColor : (isHL ? accentColor : stroke)}
-              strokeWidth={isDead ? 1.5 : (isNewState ? 3 : (s.isStart ? 2.5 : 2))}
+              stroke={isNewState ? '#2d6a4f' : (isHL ? accentColor : stroke)}
+              strokeWidth={isDead ? 1.5 : (isNewState ? 3.5 : (s.isStart ? 2.5 : 2))}
               strokeDasharray={isDead ? '5,3' : undefined}
               opacity={isDead ? 0.7 : 1}
             />
-            {isAccept && (
+            {isNewState && (
               <circle
-                cx={p.x} cy={p.y} r={R - 5}
-                fill="none"
-                stroke={accentColor}
-                strokeWidth="1.5"
+                cx={p.x} cy={p.y} r={R + 4}
+                fill="none" stroke="#2d6a4f" strokeWidth="2"
+                style={{
+                  transformBox: 'fill-box',
+                  transformOrigin: 'center',
+                  animation: 'state-ring 0.75s ease-out forwards',
+                }}
               />
+            )}
+            {isAccept && (
+              <circle cx={p.x} cy={p.y} r={R - 5} fill="none" stroke={accentColor} strokeWidth="1.5" />
             )}
             <text
               x={p.x} y={p.y}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fill={isDead ? (darkMode ? '#7a756a' : '#9a9590') : '#1e1c18'}
-              fontFamily="'JetBrains Mono', monospace"
-              fontSize="11"
-              fontWeight="600"
+              textAnchor="middle" dominantBaseline="central"
+              fill={isDead ? (darkMode ? '#7a756a' : '#9a9590') : (darkMode ? '#e8e4dc' : '#1e1c18')}
+              fontFamily="'JetBrains Mono', monospace" fontSize="11" fontWeight="600"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
               {s.label}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* ── Layer 3: Transition Labels (Pill Badges) ── */}
+      {mergedTransitions.map((t, i) => {
+        const p1 = pos[t.from], p2 = pos[t.to]
+        if (!p1 || !p2) return null
+
+        const bend = bends[i]
+        const lp   = labelPos(p1.x, p1.y, p2.x, p2.y, bend, 0, Object.values(pos))
+
+        const labelText = t.symbol
+        const charWidth = 7.2
+        const w = labelText.length * charWidth + 14
+        const h = 22
+
+        return (
+          <g 
+            key={`label-${animKey ?? ''}-${i}`} 
+            style={{ 
+              pointerEvents: 'none', 
+              userSelect: 'none',
+              filter: `drop-shadow(0 1px 2px rgba(0,0,0,${darkMode ? 0.4 : 0.12}))`
+            }}
+          >
+            <rect
+              x={lp.x - w / 2} y={lp.y - h / 2}
+              width={w} height={h}
+              rx="4" ry="4"
+              fill={darkMode ? '#1e1c18' : '#ffffff'}
+              stroke={darkMode ? '#4a4842' : '#dcd8d0'}
+              strokeWidth="1"
+              opacity="0.95"
+            />
+            <text
+              x={lp.x} y={lp.y}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill={darkMode ? '#e8e4dc' : '#1e1c18'}
+              fontFamily="'JetBrains Mono', monospace"
+              fontSize="12"
+              fontWeight="700"
+            >
+              {labelText}
             </text>
           </g>
         )
@@ -232,13 +273,13 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
         <style>{
           `@keyframes state-pop {
             from { transform: scale(0.1); opacity: 0; }
-            40%  { transform: scale(1.15); opacity: 1; }
+            60%  { transform: scale(1.1); opacity: 1; }
             to   { transform: scale(1);   opacity: 1; }
           }
           @keyframes edge-draw {
-            from { stroke-dashoffset: 1; opacity: 0; }
+            from { stroke-dashoffset: 1000; opacity: 0; }
             20%  { opacity: 1; }
-            to   { stroke-dashoffset: 0; opacity: 1; }
+            to   { stroke-dashoffset: 0;    opacity: 1; }
           }`
         }</style>
       </defs>
@@ -247,19 +288,13 @@ export default function AutomatonSVG({ states, transitions, pos, startId, accept
       {tooltip && (
         <g style={{ pointerEvents: 'none' }}>
           <rect
-            x={tooltip.x - 4}
-            y={tooltip.y - 14}
-            width={tooltip.text.length * 6.4 + 10}
-            height={19}
-            rx="3" ry="3"
-            fill="rgba(30,28,24,0.85)"
+            x={tooltip.x - 4} y={tooltip.y - 14}
+            width={tooltip.text.length * 6.8 + 10} height={19}
+            rx="3" ry="3" fill="rgba(30,28,24,0.88)"
           />
           <text
             x={tooltip.x + 1} y={tooltip.y}
-            fill="#f5f4f0"
-            fontFamily="'JetBrains Mono', monospace"
-            fontSize="10"
-            fontWeight="600"
+            fill="#f5f4f0" fontFamily="'JetBrains Mono', monospace" fontSize="10" fontWeight="600"
           >
             {tooltip.text}
           </text>

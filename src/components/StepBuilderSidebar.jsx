@@ -9,12 +9,20 @@ const STEP_META = {
   union:  { label: 'Union (+)',      icon: '+', color: '#8c3a2e', bg: 'rgba(140,58,46,0.10)', border: 'rgba(140,58,46,0.25)' },
   concat: { label: 'Concatenation',  icon: '.', color: '#7a5a10', bg: 'rgba(122,90,16,0.10)', border: 'rgba(122,90,16,0.25)' },
   star:   { label: 'Kleene Star (*)', icon: '*', color: '#1e4f8c', bg: 'rgba(30,79,140,0.10)',  border: 'rgba(30,79,140,0.25)' },
+  // DFA step types
+  'dfa-start': { label: 'ε-Closure', icon: '∅', color: '#5a1e8c', bg: 'rgba(90,30,140,0.10)', border: 'rgba(90,30,140,0.25)' },
+  'dfa-move':  { label: 'Move & Closure', icon: '→', color: '#ab5c1c', bg: 'rgba(171,92,28,0.10)', border: 'rgba(171,92,28,0.25)' },
+  'dfa-trap':  { label: 'Dead State', icon: '✖', color: '#c42f2f', bg: 'rgba(196,47,47,0.10)', border: 'rgba(196,47,47,0.25)' },
 }
 const DARK_STEP_META = {
   char:   { color: '#6fba90', bg: 'rgba(45,106,79,0.20)',  border: 'rgba(45,106,79,0.35)' },
   union:  { color: '#d97868', bg: 'rgba(140,58,46,0.20)',  border: 'rgba(140,58,46,0.35)' },
   concat: { color: '#c8a34f', bg: 'rgba(122,90,16,0.20)',  border: 'rgba(122,90,16,0.35)' },
   star:   { color: '#6a9ed8', bg: 'rgba(30,79,140,0.20)',  border: 'rgba(30,79,140,0.35)' },
+  // DFA step types
+  'dfa-start': { color: '#a878d8', bg: 'rgba(90,30,140,0.20)', border: 'rgba(90,30,140,0.35)' },
+  'dfa-move':  { color: '#d89b6a', bg: 'rgba(171,92,28,0.20)', border: 'rgba(171,92,28,0.35)' },
+  'dfa-trap':  { color: '#f26868', bg: 'rgba(196,47,47,0.20)', border: 'rgba(196,47,47,0.35)' },
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -109,49 +117,61 @@ function RuleDiagram({ type, darkMode, charLabel = 'a' }) {
     case 'concat':
       return (
         <svg viewBox="0 0 300 65" width="100%" height="55">
+          {defs('cn', eps)}
           <circle cx="16" cy="32" r="10" fill="none" stroke={fg} strokeWidth="1" strokeDasharray="3,2"/>
           <text x="16" y="36" textAnchor="middle" fill={fg} fontSize="7" fontFamily="monospace">S₁</text>
           <rect x="28" y="14" width="100" height="36" rx="5" fill={darkMode ? 'rgba(45,106,79,0.12)' : 'rgba(45,106,79,0.06)'} stroke={dim} strokeWidth="1.2" strokeDasharray="3,2"/>
           <text x="78" y="36" textAnchor="middle" fill={fg} fontSize="10" fontFamily="monospace" fontWeight="600">NFA(R₁)</text>
 
-          {/* merge node: overlapping circles */}
-          <circle cx="128" cy="32" r="12" fill={darkMode ? '#1a1814' : '#ffffff'} stroke={accent} strokeWidth="2.5"/>
-          <text x="128" y="28" textAnchor="middle" fill={accent} fontSize="7" fontFamily="monospace" fontWeight="700">A₁=S₂</text>
-          <text x="128" y="38" textAnchor="middle" fill={eps} fontSize="7" fontFamily="monospace">merge</text>
+          <circle cx="140" cy="32" r="10" fill="none" stroke={accent} strokeWidth="1.5"/>
+          <text x="140" y="36" textAnchor="middle" fill={fg} fontSize="7" fontFamily="monospace">A₁</text>
 
-          <rect x="140" y="14" width="100" height="36" rx="5" fill={darkMode ? 'rgba(122,90,16,0.12)' : 'rgba(122,90,16,0.06)'} stroke={dim} strokeWidth="1.2" strokeDasharray="3,2"/>
-          <text x="190" y="36" textAnchor="middle" fill={fg} fontSize="10" fontFamily="monospace" fontWeight="600">NFA(R₂)</text>
-          <circle cx="252" cy="32" r="10" fill="none" stroke={accent} strokeWidth="1.5"/>
-          <circle cx="252" cy="32" r="6" fill="none" stroke={accent} strokeWidth="1"/>
-          <text x="252" y="36" textAnchor="middle" fill={fg} fontSize="7" fontFamily="monospace">A₂</text>
+          <line x1="150" y1="32" x2="166" y2="32" stroke={eps} strokeWidth="1.5" strokeDasharray="3,2" markerEnd="url(#arr-cn)"/>
+          <text x="159" y="28" textAnchor="middle" fill={eps} fontSize="8" fontFamily="monospace" fontWeight="700">ε</text>
+
+          <circle cx="178" cy="32" r="10" fill="none" stroke={accent} strokeWidth="1.5"/>
+          <text x="178" y="36" textAnchor="middle" fill={fg} fontSize="7" fontFamily="monospace">S₂</text>
+
+          <rect x="190" y="14" width="80" height="36" rx="5" fill={darkMode ? 'rgba(122,90,16,0.12)' : 'rgba(122,90,16,0.06)'} stroke={dim} strokeWidth="1.2" strokeDasharray="3,2"/>
+          <text x="230" y="36" textAnchor="middle" fill={fg} fontSize="10" fontFamily="monospace" fontWeight="600">NFA(R₂)</text>
+
+          <circle cx="282" cy="32" r="10" fill="none" stroke={accent} strokeWidth="1.5"/>
+          <circle cx="282" cy="32" r="6" fill="none" stroke={accent} strokeWidth="1"/>
+          <text x="282" y="36" textAnchor="middle" fill={fg} fontSize="7" fontFamily="monospace">A₂</text>
         </svg>
       )
 
     case 'star':
       return (
+        // Optimized: S (inner start) is ALSO the star start — no separate wrapper state
         <svg viewBox="0 0 310 110" width="100%" height="95">
           {defs('st', eps)}
-          <circle cx="26" cy="55" r="14" fill="none" stroke={accent} strokeWidth="2"/>
-          <text x="26" y="59" textAnchor="middle" fill={fg} fontSize="8" fontFamily="monospace" fontWeight="700">S</text>
 
-          <rect x="50" y="32" width="140" height="46" rx="6" fill={darkMode ? 'rgba(30,79,140,0.10)' : 'rgba(30,79,140,0.05)'} stroke={dim} strokeWidth="1.2" strokeDasharray="3,2"/>
-          <text x="120" y="59" textAnchor="middle" fill={fg} fontSize="10" fontFamily="monospace" fontWeight="600">NFA(R)</text>
+          {/* S = inner start = star start */}
+          <circle cx="30" cy="55" r="14" fill="none" stroke={accent} strokeWidth="2"/>
+          <text x="30" y="52" textAnchor="middle" fill={fg} fontSize="7" fontFamily="monospace" fontWeight="700">S</text>
+          <text x="30" y="63" textAnchor="middle" fill={dim} fontSize="6" fontFamily="monospace">(inner)</text>
 
-          {/* skip arc — top */}
-          <path d="M 40 45 Q 130 4 222 45" fill="none" stroke={eps} strokeWidth="1.5" strokeDasharray="5,2" markerEnd="url(#arr-st)"/>
-          <text x="132" y="10" textAnchor="middle" fill={eps} fontSize="9" fontFamily="monospace" fontWeight="700">ε skip</text>
+          <rect x="55" y="32" width="135" height="46" rx="6" fill={darkMode ? 'rgba(30,79,140,0.10)' : 'rgba(30,79,140,0.05)'} stroke={dim} strokeWidth="1.2" strokeDasharray="3,2"/>
+          <text x="122" y="59" textAnchor="middle" fill={fg} fontSize="10" fontFamily="monospace" fontWeight="600">NFA(R)</text>
 
-          {/* exit right */}
-          <line x1="190" y1="55" x2="220" y2="55" stroke={eps} strokeWidth="1.5" strokeDasharray="4,2" markerEnd="url(#arr-st)"/>
-          <text x="205" y="48" textAnchor="middle" fill={eps} fontSize="8" fontFamily="monospace" fontWeight="700">ε</text>
+          {/* skip arc — top, from S (inner start) directly to new A */}
+          <path d="M 44 44 Q 148 0 256 44" fill="none" stroke={eps} strokeWidth="1.5" strokeDasharray="5,2" markerEnd="url(#arr-st)"/>
+          <text x="150" y="8" textAnchor="middle" fill={eps} fontSize="9" fontFamily="monospace" fontWeight="700">ε skip</text>
 
-          {/* loop arc — bottom */}
-          <path d="M 190 70 Q 120 108 50 70" fill="none" stroke={eps} strokeWidth="1.5" strokeDasharray="5,2" markerEnd="url(#arr-st)"/>
-          <text x="120" y="105" textAnchor="middle" fill={eps} fontSize="9" fontFamily="monospace" fontWeight="700">ε loop</text>
+          {/* exit right — from inner accept to new A */}
+          <line x1="190" y1="55" x2="232" y2="55" stroke={eps} strokeWidth="1.5" strokeDasharray="4,2" markerEnd="url(#arr-st)"/>
+          <text x="211" y="48" textAnchor="middle" fill={eps} fontSize="8" fontFamily="monospace" fontWeight="700">ε exit</text>
 
-          <circle cx="236" cy="55" r="14" fill="none" stroke={accent} strokeWidth="2"/>
-          <circle cx="236" cy="55" r="9" fill="none" stroke={accent} strokeWidth="1"/>
-          <text x="236" y="59" textAnchor="middle" fill={fg} fontSize="8" fontFamily="monospace" fontWeight="700">A</text>
+          {/* loop arc — bottom, from inner accept back to S (same state) */}
+          <path d="M 190 70 Q 122 108 55 70" fill="none" stroke={eps} strokeWidth="1.5" strokeDasharray="5,2" markerEnd="url(#arr-st)"/>
+          <text x="122" y="106" textAnchor="middle" fill={eps} fontSize="9" fontFamily="monospace" fontWeight="700">ε loop</text>
+
+          {/* new A — the ONLY new state created */}
+          <circle cx="258" cy="55" r="14" fill="none" stroke={accent} strokeWidth="2"/>
+          <circle cx="258" cy="55" r="9" fill="none" stroke={accent} strokeWidth="1"/>
+          <text x="258" y="52" textAnchor="middle" fill={fg} fontSize="7" fontFamily="monospace" fontWeight="700">new A</text>
+          <text x="258" y="63" textAnchor="middle" fill={dim} fontSize="6" fontFamily="monospace">(only new)</text>
         </svg>
       )
 
@@ -182,7 +202,7 @@ function ConnectionRow({ conn, darkMode }) {
         {ROLE_STYLE[conn.role]?.label || conn.role}
       </span>
       <span style={{ fontSize: 12, lineHeight: 1.5, color: darkMode ? '#c8c4bc' : '#3a3730', fontFamily: 'monospace' }}>
-        {isMerge
+        {conn.desc
           ? <>{conn.desc}</>
           : <>
               <span style={{ color: baseStyle.color, fontWeight: 700 }}>q{conn.from}</span>
@@ -208,6 +228,7 @@ export default function StepBuilderSidebar({
   setBuilderStep,
   darkMode,
   onClose,
+  isDFA,
 }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const timerRef = useRef(null)
@@ -273,7 +294,7 @@ export default function StepBuilderSidebar({
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '12px 16px', borderBottom: `1px solid ${cardBorder}`, flexShrink: 0,
       }}>
-        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em' }}>Step Builder</span>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.02em' }}>{isDFA ? 'DFA Generation Steps' : 'Step Builder'}</span>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: textMid }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -329,7 +350,7 @@ export default function StepBuilderSidebar({
             border: darkMode ? '1px solid rgba(45,106,79,0.30)' : '1px solid rgba(45,106,79,0.20)',
             color: darkMode ? '#6fba90' : '#2d6a4f', fontSize: 13, fontWeight: 600
           }}>
-            ✓ Construction complete — the full NFA is ready!
+            ✔ Construction complete — the full ε-NFA is ready!
           </div>
         )}
 
@@ -372,7 +393,7 @@ export default function StepBuilderSidebar({
             <div className="space-y-2">
               <p className={`font-semibold ${darkMode ? 'text-[#e8e4dc]' : 'text-ink'}`}>Concatenation — sequence NFA({lbls[0]}) then NFA({lbls[1]})</p>
               <ul className="list-disc pl-5 space-y-1.5 opacity-90 marker:text-[#2d6a4f]">
-                <li>Merge NFA({lbls[0]}) accept state directly into NFA({lbls[1]}) start state.</li>
+                <li>Connect NFA({lbls[0]}) accept state to NFA({lbls[1]}) start state using an ε transition.</li>
                 <li>This ensures the regex must match NFA({lbls[0]}) strictly followed by NFA({lbls[1]}).</li>
               </ul>
             </div>
@@ -382,25 +403,93 @@ export default function StepBuilderSidebar({
             <div className="space-y-2">
               <p className={`font-semibold ${darkMode ? 'text-[#e8e4dc]' : 'text-ink'}`}>Kleene Star — make NFA({lbls[0]}) repeat zero or more times</p>
               <ul className="list-disc pl-5 space-y-1.5 opacity-90 marker:text-[#2d6a4f]">
-                {step.type === 'star-step' && step.exprLabel.includes('Loop') && (
-                  <li>Add an ε loop: NFA({lbls[0]}) accept → NFA({lbls[0]}) start (so it can repeat).</li>
-                )}
-                {step.type === 'star-step' && step.exprLabel.includes('Exit') && (
+                {step.type === 'star-step' && step.exprLabel.includes('New Accept') && (
                   <>
-                    <li>Add a new accept state.</li>
-                    <li>Add an ε exit: NFA({lbls[0]}) accept → new accept (so it can stop).</li>
+                    <li>Create ONE new <strong>accept state</strong> q_new.</li>
+                    <li>Add ε <strong>skip</strong>: NFA({lbls[0]}) start → q_new — allows <em>zero</em> repetitions immediately.</li>
+                    <li className="text-xs opacity-70">The skip edge also lets us capture q_new in the diagram (it's now reachable).</li>
+                  </>
+                )}
+                {step.type === 'star-step' && step.exprLabel.includes('Loop Back') && (
+                  <>
+                    <li>Add ε <strong>loop</strong>: NFA({lbls[0]}) accept → NFA({lbls[0]}) start — enables repeating the body.</li>
+                    <li className="text-xs opacity-70">After each match of {lbls[0]}, we can loop back and try again.</li>
                   </>
                 )}
                 {step.type === 'star' && (
-                  <li>Add an ε skip: NFA({lbls[0]}) start → new accept (so it can be skipped entirely, matching zero times).</li>
+                  <>
+                    <li>Add ε <strong>exit</strong>: NFA({lbls[0]}) accept → q_new — allows stopping after any repetition.</li>
+                    <li>ε-NFA for {step.exprLabel.split(' (')[0]} complete — 3 states, 3 ε-transitions (skip, loop, exit).</li>
+                  </>
                 )}
+              </ul>
+            </div>
+          )}
+
+          {stepType === 'dfa-start' && (
+            <div className="space-y-2">
+              <p className={`font-semibold ${darkMode ? 'text-[#e8e4dc]' : 'text-ink'}`}>Remove ε-transitions from NFA start</p>
+              <ul className="list-disc pl-5 space-y-1.5 opacity-90 marker:text-[#5a1e8c] dark:marker:text-[#a878d8]">
+                <li>We begin by finding the <strong>ε-closure</strong> of the NFA's start state (<code className="text-xs">q0</code>).</li>
+                <li>This gives us the complete set of states the machine could be in before reading any input symbols.</li>
+                <li>
+                  <code className="text-xs font-bold text-accent">ε-closure(q0)</code> = 
+                  <code className="text-xs font-bold"> {'{'}{step.closureIds?.map(id => `q${id}`).join(', ')}{'}'}</code>
+                </li>
+                <li>This set becomes our initial DFA state, <strong>D0</strong>.</li>
+              </ul>
+            </div>
+          )}
+
+          {stepType === 'dfa-move' && (
+            <div className="space-y-2">
+              <p className={`font-semibold ${darkMode ? 'text-[#e8e4dc]' : 'text-ink'}`}>Evaluate moves from D{step.fromDfaState} on '{step.symbol}'</p>
+              <ul className="list-disc pl-5 space-y-1.5 opacity-90 marker:text-[#ab5c1c] dark:marker:text-[#d89b6a]">
+                <li>First, looking at the NFA states inside D{step.fromDfaState}, where can we move on '{step.symbol}'?</li>
+                <li>
+                  <code className="text-xs text-accent font-bold">move(D{step.fromDfaState}, '{step.symbol}')</code> = 
+                  <code className="text-xs font-bold"> {'{'}{step.movedIds?.map(id => `q${id}`).join(', ')}{'}'}</code>
+                </li>
+                <li>Next, find the ε-closure of these target states.</li>
+                <li>
+                  <code className="text-xs font-bold text-[#ab5c1c] dark:text-[#d89b6a]">ε-closure(...)</code> = 
+                  <code className="text-xs font-bold"> {'{'}{step.closureIds?.map(id => `q${id}`).join(', ')}{'}'}</code>
+                </li>
+                {step.isNewState ? (
+                  <li>This is a new unique subset! We create a new DFA state <strong>D{step.targetDfaState}</strong>.</li>
+                ) : (
+                  <li>We have seen this set before (it is <strong>D{step.targetDfaState}</strong>). We just add the edge.</li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {stepType === 'dfa-trap' && (
+            <div className="space-y-2">
+              <p className={`font-semibold ${darkMode ? 'text-[#e8e4dc]' : 'text-ink'}`}>Add Trap State for missing transitions</p>
+              <ul className="list-disc pl-5 space-y-1.5 opacity-90 marker:text-[#c42f2f] dark:marker:text-[#f26868]">
+                <li>A DFA must have a transition for every symbol from every state.</li>
+                <li>We create a single non-accepting <strong>Dead state (D{step.newDfaStateId})</strong>.</li>
+                <li>All missing transitions are routed to this Trap state, which loops back to itself.</li>
               </ul>
             </div>
           )}
         </div>
 
+        {/* ── Automaton Stats Info ── */}
+        <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 10, padding: '12px 14px', flexShrink: 0, display: 'flex', gap: 24 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: textMid, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>States</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: textHead, fontFamily: 'monospace' }}>{step.resultSnapshot.states.length}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: textMid, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Transitions</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: textHead, fontFamily: 'monospace' }}>{step.resultSnapshot.transitions.length}</div>
+          </div>
+        </div>
+
         {/* ── Connections / edges added this step ── */}
-        {conns.length > 0 && (
+        {!isDFA && conns.length > 0 && (
           <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 10, padding: '12px 14px', flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: textMid, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
               Connections added this step
@@ -411,13 +500,38 @@ export default function StepBuilderSidebar({
           </div>
         )}
 
-        {/* ── Rule diagram ── */}
+        {/* ── Rule diagram OR DFA subset info ── */}
         <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 10, padding: '12px 14px 4px', flexShrink: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: textMid, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-            Thompson's rule structure
+            {isDFA ? 'Subset Construction Math' : "Thompson's rule structure"}
           </div>
-          <div className={`p-4 ${darkMode ? 'bg-[#1a1814]' : 'bg-[#faf9f6]'} rounded-xl flex justify-center items-center overflow-x-auto`}>
-            <RuleDiagram type={stepType} charLabel={step.type === 'char' ? step.exprLabel : null} darkMode={darkMode} />
+          <div className={`p-4 ${darkMode ? 'bg-[#1a1814]' : 'bg-[#faf9f6]'} rounded-xl flex justify-center items-center overflow-x-auto min-h-[60px]`}>
+            {isDFA ? (
+              <div className="font-mono text-xs w-full text-center space-y-2">
+                {stepType === 'dfa-start' && (
+                  <div className="text-accent dark:text-[#a878d8] font-bold">
+                    D0 = ε-closure({'q0'}) = <span className={darkMode ? 'text-white' : 'text-black'}>{'{'}{step.closureIds?.map(id => `q${id}`).join(', ')}{'}'}</span>
+                  </div>
+                )}
+                {stepType === 'dfa-move' && (
+                  <>
+                    <div className="text-muted dark:text-[#88857d]">
+                      move(D{step.fromDfaState}, '{step.symbol}') = {'{'}{step.movedIds?.map(id => `q${id}`).join(', ')}{'}'}
+                    </div>
+                    <div className="text-accent dark:text-[#d89b6a] font-bold">
+                      D{step.targetDfaState} = ε-closure(...) = <span className={darkMode ? 'text-white' : 'text-black'}>{'{'}{step.closureIds?.map(id => `q${id}`).join(', ')}{'}'}</span>
+                    </div>
+                  </>
+                )}
+                {stepType === 'dfa-trap' && (
+                  <div className="text-danger dark:text-[#f26868] font-bold">
+                    Trap State added for dead ends
+                  </div>
+                )}
+              </div>
+            ) : (
+              <RuleDiagram type={stepType} charLabel={step.type === 'char' ? step.exprLabel : null} darkMode={darkMode} />
+            )}
           </div>
         </div>
 

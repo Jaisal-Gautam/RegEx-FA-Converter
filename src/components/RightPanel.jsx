@@ -37,6 +37,14 @@ export default function RightPanel({
   builderStep,
   setBuilderStep,
 }) {
+  // Derive a short label for the current builder step to show in the canvas title area
+  const builderStepLabel = (() => {
+    if (!constructionSteps?.length || builderStep === constructionSteps.length - 1) return null
+    const step = constructionSteps[builderStep]
+    if (!step) return null
+    return `Step ${builderStep + 1} / ${constructionSteps.length} — ${step.exprLabel ?? step.type}`
+  })()
+
   return (
     <div className="flex flex-col flex-1 min-h-[500px] md:min-h-0 overflow-hidden md:h-full md:flex-none">
       {/* ── Tab bar ── */}
@@ -105,6 +113,7 @@ export default function RightPanel({
             animStep={animStep}
             totalAnimSteps={totalAnimSteps}
             nfaLabelMap={nfaLabelMap}
+            builderStepLabel={builderStepLabel}
           />
         )}
 
@@ -122,6 +131,7 @@ export default function RightPanel({
             animStep={animStep}
             totalAnimSteps={totalAnimSteps}
             nfaLabelMap={nfaLabelMap}
+            builderStepLabel={builderStepLabel}
           />
         )}
 

@@ -41,33 +41,18 @@ export function nfaUnion(n1, n2) {
 }
 
 export function nfaConcat(n1, n2) {
-  // Merge the two machines by re-routing anything pointing to n1.accept directly to n2.start.
-  // Because Thompson machines guarantee n1.accept has 0 outgoing transitions, 
-  // it is perfectly safe to orphan it and replace its presence with n2.start.
-  const visited = new Set()
-  const redirect = (s) => {
-    if (visited.has(s.id)) return
-    visited.add(s.id)
-    s.transitions.forEach(t => {
-      if (t.to === n1.accept) {
-        t.to = n2.start
-      }
-      redirect(t.to)
-    })
-  }
-  redirect(n1.start)
-  
+  addTrans(n1.accept, n2.start, 'ε', 'bridge')
   return makeNFA(n1.start, n2.accept)
 }
 
-// Optimised: reuse the inner NFA's own start node so there is no redundant
-// wrapper start state producing a double-ε into the same target.
+// Standard Thompson's Kleene Star — reuses inner start as the star start.
+// Produces only ONE new state (the new accept), giving the minimal 3-state block.
 export function nfaStar(n) {
   const a = newState()
-  addTrans(n.accept, n.start, 'ε', 'loop') // repeat: go back for next iteration
-  addTrans(n.accept, a,       'ε', 'exit') // done repeating: leave the star
-  addTrans(n.start,  a,       'ε', 'skip') // zero repetitions: bypass body
-  return makeNFA(n.start, a)
+  addTrans(n.accept, n.start, 'ε', 'loop') // repeat: back to inner start
+  addTrans(n.accept, a,       'ε', 'exit') // done: leave the body
+  addTrans(n.start,  a,       'ε', 'skip') // zero reps: bypass body
+  return makeNFA(n.start, a)             // star start = inner start (reused)
 }
 
 // nfaPlus and nfaOptional removed as requested
@@ -269,7 +254,7 @@ function buildNFAFromPostfixWithSteps(postfix) {
         nfa = nfaConcat(aNfa, bNfa)
         exprLabel = `${aLabel}.${bLabel}`
         breaks_here_connections = [
-          { from: aAcceptId, to: bStartId, symbol: 'merge', role: 'bridge', desc: `NFA(${aLabel}) accept q${aAcceptId} merges into NFA(${bLabel}) start q${bStartId} — no new state needed` },
+          { from: aAcceptId, to: bStartId, symbol: 'ε', role: 'bridge', desc: `NFA(${aLabel}) accept q${aAcceptId} → NFA(${bLabel}) start q${bStartId} via ε transition` },
         ]
         break
       }
@@ -279,54 +264,57 @@ function buildNFAFromPostfixWithSteps(postfix) {
         const iStart = inner.start.id, iAccept = inner.accept.id
         exprLabel = innerLabel.length > 1 ? `(${innerLabel})*` : `${innerLabel}*`
 
-        const a = newState()
+        const a = newState() // only ONE new state — the new accept
 
-        // 1. Loop edge
-        addTrans(inner.accept, inner.start, 'ε', 'loop')
-        const nfaLoop = { start: inner.start, accept: inner.accept }
-        let currentStack = [...stack, nfaLoop]
-        steps.push({
-          index: steps.length,
-          type: 'star-step',
-          token: t,
-          exprLabel: `${exprLabel} (1/3: Loop)`,
-          inputSnapshots: [snapshotNFA(inner)],
-          inputLabels: [innerLabel],
-          connections: [
-            { from: iAccept, to: iStart, symbol: 'ε', role: 'loop', desc: `loop: NFA(${innerLabel}) accept q${iAccept} → NFA(${innerLabel}) start q${iStart}` }
-          ],
-          resultSnapshot: snapshotNFA(nfaLoop),
-          stackSnapshot: snapshotStack(currentStack),
-          parentType: 'star'
-        })
-
-        // 2. Exit edge
-        addTrans(inner.accept, a, 'ε', 'exit')
-        const nfaExit = { start: inner.start, accept: a }
-        currentStack = [...stack, nfaExit]
-        steps.push({
-          index: steps.length,
-          type: 'star-step',
-          token: t,
-          exprLabel: `${exprLabel} (2/3: Exit)`,
-          inputSnapshots: [snapshotNFA(inner)],
-          inputLabels: [innerLabel],
-          connections: [
-            { from: iAccept, to: a.id, symbol: 'ε', role: 'exit', desc: `exit: NFA(${innerLabel}) accept q${iAccept} → new accept q${a.id}` }
-          ],
-          resultSnapshot: snapshotNFA(nfaExit),
-          stackSnapshot: snapshotStack(currentStack),
-          parentType: 'star'
-        })
-
-        // 3. Skip edge
+        // ─── Sub-step 1: add skip edge ────────────────────────────────────────
+        // Adding skip first makes `a` reachable from inner.start, so snapshotNFA
+        // can collect it and the canvas can animate it popping into existence.
         addTrans(inner.start, a, 'ε', 'skip')
+        const nfa1 = { start: inner.start, accept: a }
+        steps.push({
+          index: steps.length,
+          type: 'star-step',
+          token: t,
+          exprLabel: `${exprLabel} (1/3: New Accept)`,
+          inputSnapshots: [],
+          inputLabels: [innerLabel],
+          connections: [
+            { from: iStart, to: a.id, symbol: 'ε', role: 'skip',
+              desc: `skip: q${iStart} → q${a.id} — zero repetitions (reveals new accept state)` },
+          ],
+          resultSnapshot: snapshotNFA(nfa1),
+          stackSnapshot: snapshotStack([...stack, nfa1]),
+          parentType: 'star'
+        })
+
+        // ─── Sub-step 2: add loop-back edge ───────────────────────────────────
+        addTrans(inner.accept, inner.start, 'ε', 'loop')
+        const nfa2 = { start: inner.start, accept: a }
+        steps.push({
+          index: steps.length,
+          type: 'star-step',
+          token: t,
+          exprLabel: `${exprLabel} (2/3: Loop Back)`,
+          inputSnapshots: [],
+          inputLabels: [innerLabel],
+          connections: [
+            { from: iAccept, to: iStart, symbol: 'ε', role: 'loop',
+              desc: `loop: q${iAccept} → q${iStart} — repeat body` },
+          ],
+          resultSnapshot: snapshotNFA(nfa2),
+          stackSnapshot: snapshotStack([...stack, nfa2]),
+          parentType: 'star'
+        })
+
+        // ─── Sub-step 3 (via common code): add exit edge → star complete ───────
+        addTrans(inner.accept, a, 'ε', 'exit')
         nfa = { start: inner.start, accept: a }
-        
-        inputSnapshots = [snapshotNFA(inner)]
+
+        inputSnapshots = []
         inputLabels = [innerLabel]
         breaks_here_connections = [
-          { from: iStart , to: a.id, symbol: 'ε', role: 'skip', desc: `skip: NFA(${innerLabel}) start q${iStart} → new accept q${a.id} (zero reps)` },
+          { from: iAccept, to: a.id, symbol: 'ε', role: 'exit',
+            desc: `exit: q${iAccept} → q${a.id} — leave loop → star complete` },
         ]
         break
       }

@@ -35,19 +35,56 @@ export function curvePath(x1, y1, x2, y2, bend = 0) {
 }
 
 /**
- * Return the midpoint position for a transition label.
+ * @param {number} labelShift  - extra perpendicular pixels to shift label
+ * @param {{x:number, y:number}[]} avoidNodes - optional list of points to avoid
  */
-export function labelPos(x1, y1, x2, y2, bend = 0) {
+export function labelPos(x1, y1, x2, y2, bend = 0, labelShift = 0, avoidNodes = []) {
   if (Math.abs(x1 - x2) < 1 && Math.abs(y1 - y2) < 1) {
-    return { x: x1, y: y1 - 72 }
+    if (bend < 0) {
+      return { x: x1 + labelShift, y: y1 + 72 }
+    }
+    return { x: x1 + labelShift, y: y1 - 72 }
   }
   const dx  = x2 - x1, dy = y2 - y1
   const len = Math.sqrt(dx * dx + dy * dy)
-  const nx  = -dy / len, ny = dx / len
+  let nx = -dy / len, ny = dx / len
+
+  // For straight lines (bend=0), ensure the label is always on the 'top' or 'left' side
+  if (Math.abs(bend) < 0.01) {
+    if (ny > 0 || (Math.abs(ny) < 0.01 && nx > 0)) {
+      nx = -nx
+      ny = -ny
+    }
+  }
+
   const cx  = (x1 + x2) / 2 + nx * bend * 60
   const cy  = (y1 + y2) / 2 + ny * bend * 60
-  const offset = 14 + Math.abs(bend) * 8
-  return { x: cx + nx * offset, y: cy + ny * offset }
+  
+  let offset = 24 + Math.abs(bend) * 10 + Math.abs(labelShift)
+  const R = STATE_RADIUS + 12 // Collision radius
+
+  // Simple collision avoidance: if label midpoint is inside a node, push it out
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const lx = cx + nx * (offset + labelShift)
+    const ly = cy + ny * (offset + labelShift)
+    
+    let collision = false
+    for (const node of avoidNodes) {
+      const distSq = (lx - node.x)**2 + (ly - node.y)**2
+      if (distSq < R * R) {
+        collision = true
+        break
+      }
+    }
+    
+    if (!collision) break
+    offset += 15 // bump out
+  }
+
+  return {
+    x: cx + nx * (offset + labelShift),
+    y: cy + ny * (offset + labelShift),
+  }
 }
 
 /**

@@ -50,6 +50,7 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
   const startClosure = epsilonClosure([nfaStart])
   const dfaStates = []
   const dfaTrans  = []
+  const dfaSteps  = []
   const queue     = [startClosure]
   const visited   = new Map()
   const key       = ids => ids.join(',')
@@ -63,6 +64,14 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
     isDead:    false,
   })
 
+  dfaSteps.push({
+    type: 'dfa-start',
+    exprLabel: 'D0 = ε-closure(q0)',
+    closureIds: startClosure,
+    newDfaStateId: 0,
+    resultSnapshot: { states: dfaStates.map(s => ({...s, nfaStates: [...s.nfaStates]})), transitions: [...dfaTrans] }
+  })
+
   while (queue.length) {
     const current   = queue.shift()
     const currentId = visited.get(key(current))
@@ -74,8 +83,10 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
       const closure = epsilonClosure(moved.map(id => stateMap[id]))
       const k       = key(closure)
       let targetId
+      let isNewState = false
 
       if (!visited.has(k)) {
+        isNewState = true
         targetId = dfaStates.length
         visited.set(k, targetId)
         dfaStates.push({
@@ -91,6 +102,18 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
       }
 
       dfaTrans.push({ from: currentId, to: targetId, symbol: sym })
+
+      dfaSteps.push({
+        type: 'dfa-move',
+        exprLabel: `D${currentId} —${sym}→ D${targetId}`,
+        fromDfaState: currentId,
+        targetDfaState: targetId,
+        symbol: sym,
+        movedIds: moved,
+        closureIds: closure,
+        isNewState,
+        resultSnapshot: { states: dfaStates.map(s => ({...s, nfaStates: [...s.nfaStates]})), transitions: [...dfaTrans] }
+      })
     }
   }
 
@@ -130,9 +153,16 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
         }
       }
     }
+
+    dfaSteps.push({
+      type: 'dfa-trap',
+      exprLabel: `Add Trap State`,
+      newDfaStateId: deadId,
+      resultSnapshot: { states: dfaStates.map(s => ({...s, nfaStates: [...s.nfaStates]})), transitions: [...dfaTrans] }
+    })
   }
 
-  return { dfaStates, dfaTrans }
+  return { dfaStates, dfaTrans, dfaSteps }
 }
 
 // ── DFA simulation ─────────────────────────────────────────────────────────

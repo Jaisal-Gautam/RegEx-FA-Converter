@@ -60,24 +60,6 @@ function buildNFAFrames(states, transitions, pos, acceptIds, startId) {
   });
 }
 
-/**
- * Build an array of incremental DFA frames (one new DFA state revealed per frame).
- */
-function buildDFAFrames(dfaStates, dfaTrans, pos, acceptIds) {
-  return dfaStates.map((_, i) => {
-    const visibleStates = dfaStates.slice(0, i + 1);
-    const visibleIds = new Set(visibleStates.map((s) => s.id));
-    return {
-      states: visibleStates.map((s) => ({ ...s, label: `D${s.id}` })),
-      transitions: dfaTrans.filter(
-        (t) => visibleIds.has(t.from) && visibleIds.has(t.to),
-      ),
-      pos,
-      startId: 0,
-      acceptIds,
-    };
-  });
-}
 
 const ANIM_INTERVAL_MS = 600; // ms per step — slow enough to follow
 
@@ -96,6 +78,9 @@ export function useAutomaton(initialRegex = "") {
   // Construction steps for step-by-step builder
   const [constructionSteps, setConstructionSteps] = useState([]);
   const [builderStep, setBuilderStep] = useState(0);
+
+  const [dfaConstructionSteps, setDfaConstructionSteps] = useState([]);
+  const [dfaBuilderStep, setDfaBuilderStep] = useState(0);
 
   // DFA
   const [dfaSvgData, setDfaSvgData] = useState(null);
@@ -240,7 +225,7 @@ export function useAutomaton(initialRegex = "") {
     setIsAnimating(false);
 
     const { nfa, states } = rawNFA;
-    const { dfaStates, dfaTrans } = subsetConstruction(
+    const { dfaStates, dfaTrans, dfaSteps } = subsetConstruction(
       nfa.start,
       states,
       alphabet,
@@ -261,10 +246,32 @@ export function useAutomaton(initialRegex = "") {
     setDfaStats({ states: dfaStates.length });
     setDfaHighlight(null);
     setActiveTab("dfa");
+    
+    // Convert dfaSteps into renderable snapshots by tagging them with the full pos map
+    const layoutDfaSteps = dfaSteps.map((step) => ({
+      ...step,
+      resultSnapshot: {
+        ...step.resultSnapshot,
+        pos,
+        startId: 0,
+        acceptIds: new Set(step.resultSnapshot.states.filter((s) => s.isAccept).map((s) => s.id))
+      }
+    }));
+    
+    setDfaConstructionSteps(layoutDfaSteps);
+    setDfaBuilderStep(layoutDfaSteps.length > 0 ? layoutDfaSteps.length - 1 : 0);
 
-    // Animate frame-by-frame in the main canvas
-    const frames = buildDFAFrames(dfaStates, dfaTrans, pos, acceptIds);
-    runAnimation(frames, true, () => {});
+    // Animate frame-by-frame in the main canvas reusing the steps as frames
+    const frames = layoutDfaSteps.map(step => ({
+      states: step.resultSnapshot.states.map((s) => ({ ...s, label: `D${s.id}` })),
+      transitions: step.resultSnapshot.transitions,
+      pos,
+      startId: 0,
+      acceptIds: step.resultSnapshot.acceptIds,
+    }));
+    if (frames.length > 0) {
+      runAnimation(frames, true, () => {});
+    }
   }, [rawNFA, alphabet, runAnimation]);
 
   // ── Simulate ─────────────────────────────────────────────────────────────
@@ -289,14 +296,18 @@ export function useAutomaton(initialRegex = "") {
     }
   }, [rawNFA, dfaRaw, simInput]);
 
-  // Build on first render
+  // Build on first render - disabled to remove preloaded input
+  /*
   useEffect(() => {
     buildNFA();
   }, []); // eslint-disable-line
+  */
 
   // ── Track previous snapshot for step-change animation ──────────────────────
   const prevBuilderStepRef = useRef(-1)
+  const prevDfaBuilderStepRef = useRef(-1)
   const prevSnapshotRef    = useRef(null)
+  const prevDfaSnapshotRef = useRef(null)
 
   const liveNfaSvgData = useMemo(() => {
     if (isAnimating && !animIsDFA && animFrames.length > 0) {
@@ -354,10 +365,51 @@ export function useAutomaton(initialRegex = "") {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAnimating, animIsDFA, animFrames, animStep, activeTab, constructionSteps, builderStep, nfaSvgData, rawNFA]);
 
-  const liveDfaSvgData =
-    isAnimating && animIsDFA && animFrames.length > 0
-      ? animFrames[animStep]
-      : dfaSvgData;
+  const liveDfaSvgData = useMemo(() => {
+    if (isAnimating && animIsDFA && animFrames.length > 0) {
+      return animFrames[animStep];
+    }
+
+    if (activeTab === "dfa" && dfaConstructionSteps.length > 0) {
+      if (dfaBuilderStep < dfaConstructionSteps.length - 1) {
+        const step = dfaConstructionSteps[dfaBuilderStep];
+        const snapshot = step.resultSnapshot;
+        if (snapshot && snapshot.states.length > 0) {
+          const prevSnap = prevDfaSnapshotRef.current
+          const prevStateIds = prevSnap ? new Set(prevSnap.states.map(s => s.id)) : new Set()
+          const newStateIds  = new Set(snapshot.states.filter(s => !prevStateIds.has(s.id)).map(s => s.id))
+          
+          const prevTransKeys = prevSnap
+            ? new Set(prevSnap.transitions.map(t => `${t.from}-${t.to}-${t.symbol}`))
+            : new Set()
+          const newTransKeys = new Set(
+            snapshot.transitions
+              .filter(t => !prevTransKeys.has(`${t.from}-${t.to}-${t.symbol}`))
+              .map(t => `${t.from}-${t.to}-${t.symbol}`)
+          )
+
+          if (prevDfaBuilderStepRef.current !== dfaBuilderStep) {
+            prevDfaBuilderStepRef.current = dfaBuilderStep
+            prevDfaSnapshotRef.current    = snapshot
+          }
+
+          return {
+            states: snapshot.states.map(s => ({ ...s, label: `D${s.id}` })),
+            transitions: snapshot.transitions,
+            pos: snapshot.pos,
+            startId: snapshot.startId,
+            acceptIds: snapshot.acceptIds,
+            newStateIds,
+            newTransKeys,
+            animKey: `dfa-${dfaBuilderStep}`,
+          };
+        }
+      }
+    }
+
+    return dfaSvgData;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAnimating, animIsDFA, animFrames, animStep, activeTab, dfaConstructionSteps, dfaBuilderStep, dfaSvgData]);
 
   // Table data to show in the canvas overlay — mirrors the current animation frame or builder step
   const liveNfaTableData = (() => {
@@ -410,6 +462,8 @@ export function useAutomaton(initialRegex = "") {
     setIsAnimating(false);
     setConstructionSteps([]);
     setBuilderStep(0);
+    setDfaConstructionSteps([]);
+    setDfaBuilderStep(0);
   }, []);
 
   return {
@@ -449,5 +503,8 @@ export function useAutomaton(initialRegex = "") {
     constructionSteps,
     builderStep,
     setBuilderStep,
+    dfaConstructionSteps,
+    dfaBuilderStep,
+    setDfaBuilderStep,
   };
 }

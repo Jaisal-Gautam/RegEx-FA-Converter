@@ -58,6 +58,7 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
   visited.set(key(startClosure), 0)
   dfaStates.push({
     id:        0,
+    label:     'D0',
     nfaStates: startClosure,
     isAccept:  startClosure.some(id => acceptIds.has(id)),
     isStart:   true,
@@ -91,6 +92,7 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
         visited.set(k, targetId)
         dfaStates.push({
           id:        targetId,
+          label:     `D${targetId}`,
           nfaStates: closure,
           isAccept:  closure.some(id => acceptIds.has(id)),
           isStart:   false,
@@ -139,6 +141,7 @@ export function subsetConstruction(nfaStart, allNFAStates, alphabet) {
     const deadId = dfaStates.length
     dfaStates.push({
       id:        deadId,
+      label:     `D${deadId}`,
       nfaStates: [],          // corresponds to the empty set ∅
       isAccept:  false,
       isStart:   false,

@@ -136,6 +136,7 @@ function snapshotNFA(nfa) {
   return {
     states: states.map(s => ({
       id: s.id,
+      label: `q${s.id}`,
       isStart: s.id === nfa.start.id,
       isAccept: s.id === nfa.accept.id,
     })),
@@ -161,6 +162,7 @@ function snapshotStack(stack) {
     states.forEach(s => {
       mergedStates.push({
         id: s.id,
+        label: `q${s.id}`,
         isStart: s.id === nfa.start.id,
         isAccept: s.id === nfa.accept.id,
       })

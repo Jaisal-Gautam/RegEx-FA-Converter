@@ -4,11 +4,13 @@ import LeftPanel  from './components/LeftPanel'
 import RightPanel from './components/RightPanel'
 import { useAutomaton } from './hooks/useAutomaton'
 import StepBuilderSidebar from './components/StepBuilderSidebar'
+import LearnModal from './components/LearnModal'
 
 export default function App() {
   const automaton = useAutomaton('')
   const [darkMode, setDarkMode] = useState(false)
   const [stepsHidden, setStepsHidden] = useState(false)
+  const [learnOpen, setLearnOpen] = useState(false)
 
   // When there are construction steps, show the sidebar
   const hasSteps = 
@@ -19,7 +21,18 @@ export default function App() {
 
   return (
     <div className={`flex flex-col min-h-screen md:h-screen md:overflow-hidden w-full font-sans bg-bg text-ink transition-colors duration-300 ${darkMode ? 'dark bg-[#0f0e0c] text-[#e8e4dc]' : ''}`}>
-      <Header darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />
+      <Header 
+        darkMode={darkMode} 
+        onToggleDark={() => setDarkMode(d => !d)} 
+        onOpenLearn={() => setLearnOpen(true)}
+      />
+
+      {learnOpen && (
+        <LearnModal 
+          darkMode={darkMode} 
+          onClose={() => setLearnOpen(false)} 
+        />
+      )}
 
       <main className={`flex-1 overflow-y-auto md:overflow-hidden min-h-0 flex flex-col md:grid ${showSteps ? 'md:grid-cols-[25%_1fr_320px] lg:grid-cols-[25%_1fr_350px]' : 'md:grid-cols-[28%_1fr]'}`}>
         <LeftPanel

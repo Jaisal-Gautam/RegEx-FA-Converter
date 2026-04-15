@@ -49,9 +49,10 @@ export function labelPos(x1, y1, x2, y2, bend = 0, labelShift = 0, avoidNodes = 
   const len = Math.sqrt(dx * dx + dy * dy)
   let nx = -dy / len, ny = dx / len
 
-  // For straight lines (bend=0), ensure the label is always on the 'top' or 'left' side
+  // Directional logic: ensure labels prefer "Top" side (ny < 0) 
+  // or "Right" side (nx > 0) for horizontal lines, but only if bend is 0.
   if (Math.abs(bend) < 0.01) {
-    if (ny > 0 || (Math.abs(ny) < 0.01 && nx > 0)) {
+    if (ny > 0 || (Math.abs(ny) < 0.01 && nx < 0)) {
       nx = -nx
       ny = -ny
     }
@@ -60,11 +61,12 @@ export function labelPos(x1, y1, x2, y2, bend = 0, labelShift = 0, avoidNodes = 
   const cx  = (x1 + x2) / 2 + nx * bend * 60
   const cy  = (y1 + y2) / 2 + ny * bend * 60
   
-  let offset = 24 + Math.abs(bend) * 10 + Math.abs(labelShift)
-  const R = STATE_RADIUS + 12 // Collision radius
+  // Increase base offset for better breathing room
+  let offset = 28 + Math.abs(bend) * 12 + Math.abs(labelShift)
+  const R = STATE_RADIUS + 15 // Collision radius (states)
 
-  // Simple collision avoidance: if label midpoint is inside a node, push it out
-  for (let attempt = 0; attempt < 10; attempt++) {
+  // Improved collision avoidance: push label out if it's too close to any state
+  for (let attempt = 0; attempt < 12; attempt++) {
     const lx = cx + nx * (offset + labelShift)
     const ly = cy + ny * (offset + labelShift)
     
@@ -78,7 +80,7 @@ export function labelPos(x1, y1, x2, y2, bend = 0, labelShift = 0, avoidNodes = 
     }
     
     if (!collision) break
-    offset += 15 // bump out
+    offset += 12 // Bump further out if still colliding
   }
 
   return {

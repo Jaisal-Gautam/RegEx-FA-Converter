@@ -1,65 +1,62 @@
 # RE→FA · RegEx to Finite Automaton
 
-An interactive, responsive, and highly-polished visualization tool that converts regular expressions into an ε-NFA via **Thompson's Construction**, and optionally converts it to a purely deterministic **DFA** via **Subset Construction**. 
+An interactive, responsive, and highly-polished visualization tool that converts regular expressions into an ε-NFA via **Thompson's Construction**, and optionally converts it to a purely deterministic **DFA** via **Subset Construction**.
 
-## Features
+## 🚀 Premium Features
 
-- **Algorithmic Step-Through Animations**: Watch the compiler parse regular expressions piece by piece. Visually step through each step of Thompson's construction and Subset construction.
-- **Topological Layout Generation**: Beautiful layer-based deterministic placement of graphical vectors ensuring deterministic visual flow paths.
-- **Interactive SVG Engine**: Highly responsive, fully scaled graphing engine employing `react-zoom-pan-pinch` for dynamic drag-panning, edge boundary locking, and scrollwheel focal zooms.
-- **Vector Blueprint Export**: Export any dynamically-constructed graphical NFA or DFA blueprint as a named `.svg` right into your file system. 
-- **Dark Mode**: Fully supports an aesthetic, glass-morphic dark mode toggle that flawlessly adjusts transition halos, syntax-highlight colors, and UI layout contrasts using Tailwind.
-- **State Simulator**: Run raw string evaluations against your created Non-Deterministic and Deterministic engines. Look directly at the generated layout to see highlighted execution paths.
+-   **Synced Algorithmic Walkthroughs**: Watch the FA being built in real-time. The initial animation is perfectly synchronized with the **Step Builder** sidebar, which provides prose explanations for every Thompson rule applied.
+-   **Intelligent BFS-Ordered Labeling**: No more confusing internal IDs. The application automatically re-labels all states (q0, q1, q2...) in Breadth-First Search order across the graph, sidebar, and transition table.
+-   **Interactive Step Builder**: A dedicated sidebar featuring:
+    -   **Playback Controls**: Play, Pause, Step-Forward, and Step-Backward through construction history.
+    -   **Dynamic Legend**: Visual diagrams showing the specific Thompson rule (Union, Concat, Star, etc.) being applied at each step.
+    -   **Automatic Sync**: Closing the sidebar or building a new regex keeps all visual states perfectly aligned.
+-   **Pulsating Contextual Table**: The live Transition Table (δ) highlights currently active rows and columns. Newly created states and edges pulsate with a green glow in both the graph and the table simultaneously.
+-   **Adjustable Animation Speed**: A dynamic slider integrated into the Step Builder controls allows you to adjust the build tempo from **Fast (200ms)** to **Slow (2000ms)**.
+-   **Ghosted Graph Visualization**: During construction, the full final layout is displayed in a dimmed "ghost" state, with active components transitioning smoothly into full opacity as they are logically added.
+-   **Interactive SVG Engine**: Highly responsive, fully scaled graphing engine employing `react-zoom-pan-pinch` for dynamic drag-panning and scrollwheel focal zooms.
+-   **Vector Blueprint Export**: Export any dynamically-constructed graphical NFA or DFA blueprint as a named `.svg` file.
+-   **Dark Mode & Glassmorphism**: Fully supports a premium dark mode with glass-morphic UI components, tailored color palettes (Accent Green for NFA, Amber for DFA), and deep contrasts.
+-   **State Simulator**: Run input strings through the generated engines with real-time path highlighting on the SVG canvas.
 
-## Getting Started
+## 🛠️ Getting Started
 
 ```bash
+# Install dependencies
 npm install
+
+# Run the development server
 npm run dev
 ```
 
 Open `http://localhost:5173` in your browser.
 
-## Project Structure
+## 📂 Project Structure
 
 ```text
 regex-automaton/
-├── index.html                   # Vite HTML entry point
-├── vite.config.js
-├── tailwind.config.js
-├── postcss.config.js
-├── package.json
-└── src/
-    ├── main.jsx                 # React DOM pipeline root
-    ├── App.jsx                  # Root component (grid layout + core states)
-    │
-    ├── styles/
-    │   └── index.css            # Core Tailwind layout logic + thematic CSS globals
-    │
-    ├── hooks/
-    │   └── useAutomaton.js      # Primary state hook handling compiler dispatch and step timing
-    │
-    ├── utils/
-    │   ├── thompson.js          # Regex AST parsing + Thompson's construction logic 
-    │   ├── subset.js            # DFA derivation sets, closures, simulation testing
-    │   ├── layout.js            # BFS hierarchical graph placement coordinates
-    │   └── svgHelpers.js        # Curved transition paths, intersecting edge solvers
-    │
-    └── components/
-        ├── Header.jsx           # Global sticky nav + dark mode toggle
-        ├── LeftPanel.jsx        # Data manipulation structural sidebar 
-        ├── RightPanel.jsx       # Tab navigator and grid switcher 
-        ├── ConstructionSteps.jsx# Step-by-step UI history derivation timeline logs
-        ├── RegexInput.jsx       # Regex evaluation input fields & visual guides
-        ├── AutomatonSVG.jsx     # Pure declarative SVG layout renderer
-        ├── CanvasPanel.jsx      # Zoomable transform wrapper and download exporter
-        └── TransitionTable.jsx  # Raw mathematical layout state tables
+├── src/
+│   ├── components/
+│   │   ├── StepBuilderSidebar.jsx  # Interactive playback and construction logs
+│   │   ├── AutomatonSVG.jsx        # Synchronized vector renderer with ghosting
+│   │   ├── CanvasPanel.jsx         # Zoomable workspace & Transition Table
+│   │   ├── BuildControls.jsx       # Primary construction triggers
+│   │   └── ...
+│   ├── hooks/
+│   │   └── useAutomaton.js         # Core engine: handles synced state, remapping, and timing
+│   ├── utils/
+│   │   ├── thompson.js             # Construction logic and step-snapshot generator
+│   │   ├── subset.js               # DFA derivation and closure math
+│   │   ├── layout.js               # Deterministic BFS graph placement
+│   │   └── ...
+│   └── styles/
+│       └── index.css               # Animations (pulsating, transitions) and Tailwind config
+└── README.md
 ```
 
-## Internal Architecture
+## 🧠 Internal Architecture
 
-**Data Flow**: The application relies deeply on standard React unidirectional functional flows. The `useAutomaton` controller hook maintains graph states, tokenizing vectors, and algorithm progress, filtering them directly downwards into cleanly separated presentational interfaces (`LeftPanel`, `CanvasPanel`, `TransitionTable`).
+**Unified State Management**: The application uses a single source of truth for the animation progression (`builderStep`). Both the `AutomatonSVG` and `StepBuilderSidebar` consume this same index to derive their highlights and prose, ensuring zero desync between the "Prose" and the "Pixels".
 
-**Deterministic Vectors**: Graphs are parsed on the fly mathematically and mapped onto SVG elements. We inject precision SVG namespaces onto raw cloned elements in memory to power isolated exports without dependency bloat.
+**Dynamic ID Re-mapping**: To maintain pedagogical clarity, the engine performs a post-processing pass on the construction snapshots generated by the Thompson and Subset algorithms. This pass maps internal state IDs to final display labels (e.g., internal-5 becomes display-q0) so the user never sees erratic ID numbering.
 
-**Design Logic**: Layout positioning exclusively utilizes modern `grid` block components configured by `Tailwind CSS`, ensuring robust responsiveness horizontally bounded completely by overflow locking. No draggable panels or misaligned flex margins disrupt the canvas mapping.
+**Performance**: SVG layouts are pre-calculated during the build phase. This prevents "jitter" or view-box jumping as states are added, providing a stable, premium-feeling visualization experience.

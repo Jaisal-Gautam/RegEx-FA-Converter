@@ -24,5 +24,5 @@ export default function BuildControls({ onBuildNFA, onBuildDFA, canBuildDFA }) {
         Convert to DFA (Subset Construction)
       </button>
     </div>
-  )
+  );
 }

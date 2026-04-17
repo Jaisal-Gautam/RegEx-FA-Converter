@@ -141,18 +141,25 @@ export default function CanvasPanel({
           </div>
 
           {/* ── Live δ Transition Table ── */}
-          {svgData?.states?.length > 0 && (
-            <LiveDeltaTable
-              states={svgData.states}
-              transitions={svgData.transitions ?? []}
-              startId={svgData.startId}
-              acceptIds={svgData.acceptIds}
+          {(tableData?.states?.length > 0 || svgData?.states?.length > 0) && (() => {
+            const displayStates = tableData?.states || svgData.states;
+            const displayTransitions = tableData?.transitions || svgData.transitions || [];
+            return (
+              <LiveDeltaTable
+                states={displayStates}
+                transitions={displayTransitions}
+                startId={svgData.startId}
+                acceptIds={svgData.acceptIds}
               isDFA={isDFA}
               darkMode={darkMode}
               newStateIds={svgData?.newStateIds}
               newTransKeys={svgData?.newTransKeys}
+              activeNodeIds={svgData?.activeNodeIds}
+              activeSymbol={svgData?.activeSymbol}
+              activeRowId={svgData?.activeRowId}
             />
-          )}
+            )
+          })()}
         </>
       )}
     </div>
@@ -164,7 +171,7 @@ export default function CanvasPanel({
    Shows the current build state as a δ table below the automaton.
    New rows/cells are highlighted as the construction advances step by step.
    ──────────────────────────────────────────────────────────────────────────── */
-function LiveDeltaTable({ states, transitions, startId, acceptIds, isDFA, darkMode, newStateIds, newTransKeys }) {
+function LiveDeltaTable({ states, transitions, startId, acceptIds, isDFA, darkMode, newStateIds, newTransKeys, activeSymbol, activeRowId }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   // Sort states numerically (q0, q1, q2...)
@@ -235,11 +242,28 @@ function LiveDeltaTable({ states, transitions, startId, acceptIds, isDFA, darkMo
               <th style={{ background: hdrBg, color: muted, padding: '3px 10px', textAlign: 'left', borderBottom: `1px solid ${border}`, borderRight: `1px solid ${border}`, fontWeight: 700, position: 'sticky', top: 0, zIndex: 2, whiteSpace: 'nowrap' }}>
                 State
               </th>
-              {syms.map(sym => (
-                <th key={sym} style={{ background: hdrBg, color: sym === 'ε' ? '#3a5a8c' : muted, padding: '3px 10px', textAlign: 'center', borderBottom: `1px solid ${border}`, borderRight: `1px solid ${border}`, fontWeight: 700, position: 'sticky', top: 0, zIndex: 2 }}>
-                  {sym}
-                </th>
-              ))}
+              {syms.map(sym => {
+                const isActive = sym === activeSymbol
+                return (
+                  <th key={sym} style={{
+                    background: isActive
+                      ? (isDFA ? 'rgba(171, 92, 28, 0.2)' : 'rgba(45, 106, 79, 0.2)')
+                      : hdrBg,
+                    color: isActive ? (darkMode ? '#fff' : '#000') : (sym === 'ε' ? '#3a5a8c' : muted),
+                    padding: '3px 10px',
+                    textAlign: 'center',
+                    borderBottom: `1px solid ${border}`,
+                    borderRight: `1px solid ${border}`,
+                    fontWeight: 700,
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                    boxShadow: isActive ? `inset 0 -2px 0 ${isDFA ? '#ab5c1c' : '#2d6a4f'}` : 'none',
+                  }}>
+                    {sym}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>
@@ -266,6 +290,8 @@ function LiveDeltaTable({ states, transitions, startId, acceptIds, isDFA, darkMo
                     fontWeight: 700,
                     color: isAccept ? '#2d6a4f' : ink,
                     whiteSpace: 'nowrap',
+                    background: s.id === activeRowId ? (isDFA ? 'rgba(171,92,28,0.1)' : 'rgba(45,106,79,0.1)') : 'transparent',
+                    boxShadow: s.id === activeRowId ? `inset 2px 0 0 ${isDFA ? '#ab5c1c' : '#2d6a4f'}` : 'none'
                   }}>
                     {isStart && <span style={{ color: '#2d6a4f', marginRight: 2 }}>→</span>}
                     {isAccept && <span style={{ color: '#2d6a4f', marginRight: 1 }}>*</span>}
@@ -285,16 +311,20 @@ function LiveDeltaTable({ states, transitions, startId, acceptIds, isDFA, darkMo
                       .some(t => newTransKeys.has(`${t.from}-${t.to}-${t.symbol}`))
 
                     return (
-                      <td key={sym} style={{
+                      <td key={sym}
+                        className={anyNew ? 'table-pulse' : ''}
+                        style={{
                         padding: '3px 10px',
                         textAlign: 'center',
                         borderBottom: `1px solid ${border}`,
                         borderRight: `1px solid ${border}`,
                         color: anyNew ? '#2d6a4f' : tos.length ? ink : muted,
                         fontWeight: anyNew ? 700 : 400,
-                        background: anyNew
-                          ? (darkMode ? 'rgba(45,106,79,0.15)' : 'rgba(45,106,79,0.08)')
-                          : 'transparent',
+                        background: (sym === activeSymbol && s.id === activeRowId)
+                          ? (isDFA ? 'rgba(171,92,28,0.2)' : 'rgba(45,106,79,0.2)')
+                          : anyNew
+                            ? (darkMode ? 'rgba(45,106,79,0.15)' : 'rgba(45,106,79,0.08)')
+                            : 'transparent',
                         transition: 'background 0.4s, color 0.3s',
                       }}>
                         {tos.length ? `{${tos.join(',')}}` : '∅'}

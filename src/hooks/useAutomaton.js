@@ -43,29 +43,81 @@ function buildLabelMap(states, startId) {
   return map
 }
 
-function buildNFAFrames(states, transitions, pos, acceptIds, startId) {
-  const labelMap = buildLabelMap(states, startId)
-  return states.map((_, i) => {
-    const visibleStates = states.slice(0, i + 1);
-    const visibleIds = new Set(visibleStates.map((s) => s.id));
-    return {
-      states: visibleStates.map((s) => ({ ...s, label: labelMap.get(s.id) ?? `q${s.id}` })),
-      transitions: transitions.filter(
-        (t) => visibleIds.has(t.from) && visibleIds.has(t.to),
-      ),
-      pos,
-      startId,
-      acceptIds,
+/**
+ * Post-processes construction steps to remap internal IDs to BFS-ordered labels (q0, q1, ...).
+ * This ensures the sidebar text and graph highlights are in sync.
+ */
+function remapConstructionSteps(steps, labelMap) {
+  const getMappedNum = (id) => {
+    const label = labelMap.get(id);
+    if (!label) return id;
+    const num = parseInt(label.replace('q', ''), 10);
+    return isNaN(num) ? id : num;
+  };
+
+  return steps.map(step => {
+    const newStep = { ...step };
+
+    const remapSnapshot = (snap) => {
+      if (!snap) return snap;
+      const states = (snap.states || []).map(s => ({
+        ...s,
+        id: getMappedNum(s.id),
+        label: labelMap.get(s.id) || `q${s.id}`
+      }));
+      const transitions = (snap.transitions || []).map(t => ({
+        ...t,
+        from: getMappedNum(t.from),
+        to: getMappedNum(t.to)
+      }));
+      return {
+        ...snap,
+        states,
+        transitions,
+        startId: getMappedNum(snap.startId),
+        acceptId: getMappedNum(snap.acceptId),
+        // Some snapshots might have acceptIds as array
+        acceptIds: snap.acceptIds ? (Array.isArray(snap.acceptIds) ? snap.acceptIds.map(getMappedNum) : snap.acceptIds) : undefined
+      };
     };
+
+    if (newStep.resultSnapshot) newStep.resultSnapshot = remapSnapshot(newStep.resultSnapshot);
+    if (newStep.stackSnapshot) {
+      // stackSnapshot is an object with states and transitions arrays
+      newStep.stackSnapshot = remapSnapshot(newStep.stackSnapshot);
+    }
+
+    if (newStep.connections) {
+      newStep.connections = newStep.connections.map(conn => {
+        let desc = conn.desc;
+        if (desc) {
+          desc = desc.replace(/q(\d+)/g, (match, idStr) => {
+            const id = parseInt(idStr, 10);
+            return labelMap.get(id) || match;
+          });
+        }
+        return {
+          ...conn,
+          from: getMappedNum(conn.from),
+          to: getMappedNum(conn.to),
+          desc
+        };
+      });
+    }
+
+    return newStep;
   });
 }
 
 
-const ANIM_INTERVAL_MS = 600; // ms per step — slow enough to follow
+
+// Default interval is 800ms
+const DEFAULT_ANIM_INTERVAL_MS = 800;
 
 export function useAutomaton(initialRegex = "") {
   const [regexVal, setRegexVal] = useState(initialRegex);
   const [error, setError] = useState("");
+  const [animInterval, setAnimInterval] = useState(DEFAULT_ANIM_INTERVAL_MS);
 
   // NFA
   const [nfaSvgData, setNfaSvgData] = useState(null);
@@ -95,37 +147,34 @@ export function useAutomaton(initialRegex = "") {
   // Active tab
   const [activeTab, setActiveTab] = useState("nfa");
 
-  // Animation — frames are full svgData objects; step advances on interval
-  const [animFrames, setAnimFrames] = useState([]); // all frames
-  const [animStep, setAnimStep] = useState(0); // current frame index
+  // Animation — advances builderStep automatically on interval
   const [isAnimating, setIsAnimating] = useState(false);
   const [animIsDFA, setAnimIsDFA] = useState(false); // which type is animating
 
   const timerRef = useRef(null);
 
-  /** Start the frame-by-frame animation for the given frames array */
-  const runAnimation = useCallback((frames, isDFA, onDone) => {
+  /** Start the step-by-step animation for the given step sequence */
+  const runAnimation = useCallback((stepsCount, isDFA, setter, onDone) => {
     if (timerRef.current) clearInterval(timerRef.current);
 
-    setAnimFrames(frames);
-    setAnimStep(0);
     setIsAnimating(true);
     setAnimIsDFA(isDFA);
+    setter(0);
 
     let idx = 0;
     timerRef.current = setInterval(() => {
       idx++;
-      if (idx >= frames.length) {
+      if (idx >= stepsCount) {
         clearInterval(timerRef.current);
         timerRef.current = null;
-        setAnimStep(frames.length - 1);
+        setter(stepsCount - 1);
         setIsAnimating(false);
         onDone?.();
         return;
       }
-      setAnimStep(idx);
-    }, ANIM_INTERVAL_MS);
-  }, []);
+      setter(idx);
+    }, animInterval);
+  }, [animInterval]);
 
   // Cleanup on unmount
   useEffect(
@@ -135,23 +184,14 @@ export function useAutomaton(initialRegex = "") {
     [],
   );
 
-  /** Pause animation & jump to a specific frame */
-  const goToStep = useCallback((stepIdx, isDfaStep = false) => {
+  /** Stop animation */
+  const goToStep = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    
-    // If jumping to the final state, end the animation phase naturally
-    if (animFrames.length > 0 && stepIdx >= animFrames.length - 1) {
-      setIsAnimating(false);
-      setAnimStep(animFrames.length - 1);
-    } else {
-      setIsAnimating(true);
-      setAnimStep(stepIdx);
-    }
-    setAnimIsDFA(isDfaStep);
-  }, [animFrames]);
+    setIsAnimating(false);
+  }, []);
 
   // ── Build NFA ────────────────────────────────────────────────────────────
   const buildNFA = useCallback(() => {
@@ -161,7 +201,6 @@ export function useAutomaton(initialRegex = "") {
     setDfaStats(null);
     setDfaHighlight(null);
     setSimResult(null);
-    setAnimFrames([]);
     setIsAnimating(false);
 
     if (!regexVal.trim()) {
@@ -184,8 +223,10 @@ export function useAutomaton(initialRegex = "") {
       setPostfix(pf);
       setAlphabet(alpha);
       setRawNFA({ nfa, states, allTrans, labelMap });
-      setConstructionSteps(cSteps);
-      setBuilderStep(cSteps.length > 0 ? cSteps.length - 1 : 0); // Start at final step
+      
+      const syncedSteps = remapConstructionSteps(cSteps, labelMap);
+      setConstructionSteps(syncedSteps);
+      setBuilderStep(syncedSteps.length > 0 ? syncedSteps.length - 1 : 0);
 
       const finalSvg = {
         states: states.map((s) => ({ ...s, label: labelMap.get(s.id) ?? `q${s.id}` })),
@@ -204,15 +245,12 @@ export function useAutomaton(initialRegex = "") {
       });
       setActiveTab("nfa");
 
-      // Animate frame-by-frame in the main canvas
-      const frames = buildNFAFrames(
-        states,
-        allTrans,
-        pos,
-        acceptIds,
-        nfa.start.id,
-      );
-      runAnimation(frames, false, () => {});
+      // Step 0 is not needed manually, runAnimation does it.
+      if (syncedSteps.length > 0) {
+        runAnimation(syncedSteps.length, false, setBuilderStep);
+      } else {
+        setBuilderStep(0);
+      }
     } catch (e) {
       setError(e.message);
     }
@@ -221,7 +259,6 @@ export function useAutomaton(initialRegex = "") {
   // ── Convert to DFA ───────────────────────────────────────────────────────
   const buildDFA = useCallback(() => {
     if (!rawNFA) return;
-    setAnimFrames([]);
     setIsAnimating(false);
 
     const { nfa, states } = rawNFA;
@@ -258,19 +295,26 @@ export function useAutomaton(initialRegex = "") {
       }
     }));
     
-    setDfaConstructionSteps(layoutDfaSteps);
-    setDfaBuilderStep(layoutDfaSteps.length > 0 ? layoutDfaSteps.length - 1 : 0);
+    // Post-process DFA steps to use mapped NFA labels
+    const nfaLabelMap = rawNFA.labelMap;
+    const getMappedNum = (id) => {
+      const label = nfaLabelMap.get(id);
+      if (!label) return id;
+      const num = parseInt(label.replace('q', ''), 10);
+      return isNaN(num) ? id : num;
+    };
 
-    // Animate frame-by-frame in the main canvas reusing the steps as frames
-    const frames = layoutDfaSteps.map(step => ({
-      states: step.resultSnapshot.states.map((s) => ({ ...s, label: `D${s.id}` })),
-      transitions: step.resultSnapshot.transitions,
-      pos,
-      startId: 0,
-      acceptIds: step.resultSnapshot.acceptIds,
+    const syncedDfaSteps = layoutDfaSteps.map(step => ({
+      ...step,
+      movedIds: step.movedIds ? step.movedIds.map(getMappedNum) : [],
+      closureIds: step.closureIds ? step.closureIds.map(getMappedNum) : [],
     }));
-    if (frames.length > 0) {
-      runAnimation(frames, true, () => {});
+
+    setDfaConstructionSteps(syncedDfaSteps);
+    if (syncedDfaSteps.length > 0) {
+      runAnimation(syncedDfaSteps.length, true, setDfaBuilderStep);
+    } else {
+      setDfaBuilderStep(0);
     }
   }, [rawNFA, alphabet, runAnimation]);
 
@@ -310,10 +354,6 @@ export function useAutomaton(initialRegex = "") {
   const prevDfaSnapshotRef = useRef(null)
 
   const liveNfaSvgData = useMemo(() => {
-    if (isAnimating && !animIsDFA && animFrames.length > 0) {
-      return animFrames[animStep];
-    }
-    
     // Step builder rendering
     if (activeTab === "nfa" && constructionSteps.length > 0) {
       if (builderStep < constructionSteps.length - 1) {
@@ -345,16 +385,13 @@ export function useAutomaton(initialRegex = "") {
           }
 
           return {
-            states: snapshot.states.map(s => ({
-              ...s,
-              label: rawNFA.labelMap.get(s.id) ?? `q${s.id}`,
-            })),
-            transitions: snapshot.transitions,
-            pos,
-            startId: snapshot.startIds[0],
-            acceptIds,
+            ...nfaSvgData,
+            activeNodeIds: new Set(snapshot.states.map(s => s.id)),
+            activeTransKeys: new Set(snapshot.transitions.map(t => `${t.from}-${t.to}-${t.symbol}`)),
             newStateIds,
             newTransKeys,
+            activeSymbol: step.token?.type === 'char' ? step.token.val : 'ε',
+            activeRowId: step.connections?.[0]?.from,
             animKey: builderStep,   // signal to AutomatonSVG to re-trigger animation
           };
         }
@@ -363,13 +400,9 @@ export function useAutomaton(initialRegex = "") {
     
     return nfaSvgData; // Final complete NFA
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAnimating, animIsDFA, animFrames, animStep, activeTab, constructionSteps, builderStep, nfaSvgData, rawNFA]);
+  }, [activeTab, constructionSteps, builderStep, nfaSvgData, rawNFA]);
 
   const liveDfaSvgData = useMemo(() => {
-    if (isAnimating && animIsDFA && animFrames.length > 0) {
-      return animFrames[animStep];
-    }
-
     if (activeTab === "dfa" && dfaConstructionSteps.length > 0) {
       if (dfaBuilderStep < dfaConstructionSteps.length - 1) {
         const step = dfaConstructionSteps[dfaBuilderStep];
@@ -394,13 +427,13 @@ export function useAutomaton(initialRegex = "") {
           }
 
           return {
-            states: snapshot.states.map(s => ({ ...s, label: `D${s.id}` })),
-            transitions: snapshot.transitions,
-            pos: snapshot.pos,
-            startId: snapshot.startId,
-            acceptIds: snapshot.acceptIds,
+            ...dfaSvgData,
+            activeNodeIds: new Set(snapshot.states.map(s => s.id)),
+            activeTransKeys: new Set(snapshot.transitions.map(t => `${t.from}-${t.to}-${t.symbol}`)),
             newStateIds,
             newTransKeys,
+            activeSymbol: step.symbol,
+            activeRowId: step.fromDfaState,
             animKey: `dfa-${dfaBuilderStep}`,
           };
         }
@@ -409,17 +442,10 @@ export function useAutomaton(initialRegex = "") {
 
     return dfaSvgData;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAnimating, animIsDFA, animFrames, animStep, activeTab, dfaConstructionSteps, dfaBuilderStep, dfaSvgData]);
+  }, [activeTab, dfaConstructionSteps, dfaBuilderStep, dfaSvgData]);
 
   // Table data to show in the canvas overlay — mirrors the current animation frame or builder step
   const liveNfaTableData = (() => {
-    if (isAnimating && !animIsDFA && animFrames.length > 0) {
-      return {
-        states: animFrames[animStep].states,
-        transitions: animFrames[animStep].transitions,
-      };
-    }
-    
     if (activeTab === "nfa" && constructionSteps.length > 0 && builderStep < constructionSteps.length - 1) {
       const step = constructionSteps[builderStep];
       const snapshot = step.stackSnapshot;
@@ -436,16 +462,21 @@ export function useAutomaton(initialRegex = "") {
 
   // For the DFA overlay table, CanvasPanel passes tableData → MiniDFATable({dfaData})
   // which expects { dfaStates, dfaTrans }, so we reshape the animation frame accordingly.
-  const liveDfaTableData =
-    isAnimating && animIsDFA && animFrames.length > 0
-      ? {
-          dfaStates: animFrames[animStep].states.map((s) => ({
+  const liveDfaTableData = (() => {
+    if (activeTab === "dfa" && dfaConstructionSteps.length > 0 && dfaBuilderStep < dfaConstructionSteps.length - 1) {
+      const step = dfaConstructionSteps[dfaBuilderStep];
+      if (step && step.resultSnapshot) {
+        return {
+          dfaStates: step.resultSnapshot.states.map((s) => ({
             ...s,
             nfaStates: s.nfaStates || [],
           })),
-          dfaTrans: animFrames[animStep].transitions,
-        }
-      : dfaRaw;
+          dfaTrans: step.resultSnapshot.transitions,
+        };
+      }
+    }
+    return dfaRaw;
+  })();
 
   // Clear previously generated FAs whenever the user edits the regex string
   const handleRegexChange = useCallback((newRegex) => {
@@ -458,7 +489,6 @@ export function useAutomaton(initialRegex = "") {
     setDfaStats(null);
     setNfaStats(null);
     setPostfix([]);
-    setAnimFrames([]);
     setIsAnimating(false);
     setConstructionSteps([]);
     setBuilderStep(0);
@@ -494,8 +524,8 @@ export function useAutomaton(initialRegex = "") {
     setActiveTab,
     isAnimating,
     animIsDFA,
-    animStep,
-    totalAnimSteps: animFrames.length,
+    animStep: animIsDFA ? dfaBuilderStep : builderStep,
+    totalAnimSteps: animIsDFA ? dfaConstructionSteps.length : constructionSteps.length,
     hasNFA: !!rawNFA,
     hasDFA: !!dfaRaw,
     nfaLabelMap: rawNFA?.labelMap ?? null,
@@ -506,5 +536,7 @@ export function useAutomaton(initialRegex = "") {
     dfaConstructionSteps,
     dfaBuilderStep,
     setDfaBuilderStep,
+    animInterval,
+    setAnimInterval,
   };
 }

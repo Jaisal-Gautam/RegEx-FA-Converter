@@ -88,6 +88,8 @@ export default function App() {
             darkMode={darkMode}
             onClose={() => setStepsHidden(true)}
             isDFA={automaton.activeTab === 'dfa'}
+            animInterval={automaton.animInterval}
+            setAnimInterval={automaton.setAnimInterval}
           />
         )}
 

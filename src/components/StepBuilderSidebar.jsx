@@ -74,12 +74,12 @@ function RuleDiagram({ type, darkMode, charLabel = 'a' }) {
         <svg viewBox="0 0 240 60" width="100%" height="55">
           {defs('ch', fg)}
           <circle cx="40" cy="30" r="18" fill="none" stroke={accent} strokeWidth="2"/>
-          <text x="40" y="34" textAnchor="middle" fill={fg} fontSize="9" fontFamily="monospace" fontWeight="600">q0</text>
+          <text x="40" y="34" textAnchor="middle" fill={fg} fontSize="9" fontFamily="monospace" fontWeight="600">S</text>
           <line x1="58" y1="30" x2="118" y2="30" stroke={fg} strokeWidth="1.5" markerEnd="url(#arr-ch)"/>
           <text x="88" y="22" textAnchor="middle" fill={accent} fontSize="13" fontFamily="monospace" fontWeight="800">{charLabel}</text>
           <circle cx="140" cy="30" r="18" fill="none" stroke={accent} strokeWidth="2"/>
           <circle cx="140" cy="30" r="13" fill="none" stroke={accent} strokeWidth="1"/>
-          <text x="140" y="34" textAnchor="middle" fill={fg} fontSize="9" fontFamily="monospace" fontWeight="600">q1</text>
+          <text x="140" y="34" textAnchor="middle" fill={fg} fontSize="9" fontFamily="monospace" fontWeight="600">A</text>
           <text x="180" y="34" fill={dim} fontSize="8" fontFamily="monospace">← accept</text>
         </svg>
       )
@@ -220,8 +220,6 @@ function ConnectionRow({ conn, darkMode }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    Main sidebar component
    ═══════════════════════════════════════════════════════════════════════════ */
-const AUTOPLAY_INTERVAL = 2800
-
 export default function StepBuilderSidebar({
   constructionSteps,
   builderStep,
@@ -229,7 +227,10 @@ export default function StepBuilderSidebar({
   darkMode,
   onClose,
   isDFA,
+  animInterval,
+  setAnimInterval,
 }) {
+  const AUTOPLAY_INTERVAL = animInterval * 2.5; // Sidebar needs more time for reading prose
   const [isPlaying, setIsPlaying] = useState(false)
   const timerRef = useRef(null)
 
@@ -246,7 +247,7 @@ export default function StepBuilderSidebar({
       }, AUTOPLAY_INTERVAL)
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [isPlaying, totalSteps, setBuilderStep])
+  }, [isPlaying, totalSteps, setBuilderStep, AUTOPLAY_INTERVAL])
 
   const goNext     = useCallback(() => setBuilderStep(s => Math.min(s + 1, totalSteps - 1)), [totalSteps, setBuilderStep])
   const goPrev     = useCallback(() => setBuilderStep(s => Math.max(s - 1, 0)), [setBuilderStep])
@@ -430,10 +431,10 @@ export default function StepBuilderSidebar({
             <div className="space-y-2">
               <p className={`font-semibold ${darkMode ? 'text-[#e8e4dc]' : 'text-ink'}`}>Remove ε-transitions from NFA start</p>
               <ul className="list-disc pl-5 space-y-1.5 opacity-90 marker:text-[#5a1e8c] dark:marker:text-[#a878d8]">
-                <li>We begin by finding the <strong>ε-closure</strong> of the NFA's start state (<code className="text-xs">q0</code>).</li>
+                <li>We begin by finding the <strong>ε-closure</strong> of the NFA's start state (<code className="text-xs">q{step.resultSnapshot?.startId ?? 0}</code>).</li>
                 <li>This gives us the complete set of states the machine could be in before reading any input symbols.</li>
                 <li>
-                  <code className="text-xs font-bold text-accent">ε-closure(q0)</code> = 
+                  <code className="text-xs font-bold text-accent">ε-closure(q{step.resultSnapshot?.startId ?? 0})</code> = 
                   <code className="text-xs font-bold"> {'{'}{step.closureIds?.map(id => `q${id}`).join(', ')}{'}'}</code>
                 </li>
                 <li>This set becomes our initial DFA state, <strong>D0</strong>.</li>
@@ -510,7 +511,7 @@ export default function StepBuilderSidebar({
               <div className="font-mono text-xs w-full text-center space-y-2">
                 {stepType === 'dfa-start' && (
                   <div className="text-accent dark:text-[#a878d8] font-bold">
-                    D0 = ε-closure({'q0'}) = <span className={darkMode ? 'text-white' : 'text-black'}>{'{'}{step.closureIds?.map(id => `q${id}`).join(', ')}{'}'}</span>
+                    D0 = ε-closure({'q' + (step.resultSnapshot?.startId ?? 0)}) = <span className={darkMode ? 'text-white' : 'text-black'}>{'{'}{step.closureIds?.map(id => `q${id}`).join(', ')}{'}'}</span>
                   </div>
                 )}
                 {stepType === 'dfa-move' && (
@@ -587,6 +588,40 @@ export default function StepBuilderSidebar({
               {icon}
             </button>
           ))}
+        </div>
+
+        {/* Speed Slider below controls */}
+        <div style={{ marginTop: 12, padding: '0 4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: darkMode ? '#5a5650' : '#88857d', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Animation Speed
+            </span>
+            <span style={{ fontSize: 9, fontFamily: 'monospace', color: darkMode ? '#5a5650' : '#88857d' }}>
+              {animInterval}ms
+            </span>
+          </div>
+          <input
+            type="range"
+            min="200"
+            max="2000"
+            step="100"
+            value={animInterval}
+            onChange={(e) => setAnimInterval(parseInt(e.target.value, 10))}
+            style={{
+              width: '100%',
+              height: 3,
+              borderRadius: 2,
+              appearance: 'none',
+              background: darkMode ? '#2a2824' : '#e2dfda',
+              outline: 'none',
+              cursor: 'pointer',
+              accentColor: isDFA ? '#ab5c1c' : '#2d6a4f'
+            }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+             <span style={{ fontSize: 8, color: darkMode ? '#444' : '#aaa' }}>Fast</span>
+             <span style={{ fontSize: 8, color: darkMode ? '#444' : '#aaa' }}>Slow</span>
+          </div>
         </div>
       </div>
     </div>

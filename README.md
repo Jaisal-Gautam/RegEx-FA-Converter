@@ -1,4 +1,5 @@
 # RE→FA · RegEx to Finite Automaton
+#Jaisal Gautam [2024UCS1682]
 
 An interactive, responsive, and highly-polished visualization tool that converts regular expressions into an ε-NFA via **Thompson's Construction**, and optionally converts it to a purely deterministic **DFA** via **Subset Construction**.
 
